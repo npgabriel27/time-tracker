@@ -14,6 +14,17 @@
    - Meta diária configurável (padrão: 8h)
    - Persistência local em `localStorage` — funciona sem internet
    - Sincronização opcional com Google Sheets via Apps Script
+   - Instalável como app (PWA) — funciona offline e abre em tela cheia
+
+   ---
+
+   ## Instalar como app no iPhone
+
+   1. Abra `https://npgabriel27.github.io/time-tracker/` no **Safari**
+   2. Toque no ícone de compartilhar (quadrado com seta para cima)
+   3. Escolha **Adicionar à Tela de Início**
+
+   O app passa a abrir com ícone próprio, em tela cheia (sem barra do navegador) e continua funcionando offline.
 
    ---
 
@@ -59,13 +70,16 @@
 
    ## Estrutura da planilha
 
-   O script cria uma aba chamada **Registros** com as colunas:
+   O script cria uma aba chamada **Registros** com uma linha **por sessão** (não por dia):
 
-   | Data | Horas | Milissegundos | Meta (h) | Sessões | Atualizado em |
-   |------|-------|--------------|---------|---------|--------------|
-   | 2026-09-14 | 8.25 | 29700000 | 8 | 3 | 2026-09-14T18:… |
+   | Timestamp | Competência | Início | Fim | ID Sessão |
+   |-----------|-------------|--------|-----|-----------|
+   | 2026-09-14T18:32:10Z | 2026-09-14 | 2026-09-14T12:00:00Z | 2026-09-14T15:31:40Z | 1757858330000 |
 
-   - Se você registrar o dia mais de uma vez, a linha existente é **atualizada** (não duplicada)
+   - Ao **iniciar** o cronômetro, uma linha é criada na hora com o horário de início (coluna Fim vazia)
+   - Ao **pausar**, a mesma linha é localizada (pela coluna ID Sessão) e a coluna Fim é preenchida
+   - A coluna **ID Sessão** é uma chave técnica (não editar) usada só para o app encontrar a linha certa ao atualizar
+   - Rodar **Sincronizar agora** reenvia as sessões do dia — seguro mesmo se já estiverem sincronizadas, não duplica linhas
 
    ---
 
@@ -85,6 +99,9 @@
    ```
    time-tracker/
    ├── index.html       ← app completo (HTML + CSS + JS em um único arquivo)
+   ├── manifest.json    ← manifesto do PWA (nome, ícones, cores)
+   ├── sw.js            ← service worker (cache offline)
+   ├── icons/           ← ícones do app (Tela de Início, favicon)
    ├── apps-script.gs   ← código para o Google Apps Script
    └── README.md        ← este arquivo
    ```

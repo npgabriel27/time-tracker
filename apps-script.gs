@@ -5,13 +5,13 @@
 
 // Configurações — ajuste conforme necessário
 const CONFIG = {
-  SHEET_NAME: 'Registros',    // Nome da aba na planilha
-  DATE_COL:   1,              // Coluna A → data
-  HOURS_COL:  2,              // Coluna B → horas totais
-  MS_COL:     3,              // Coluna C → milissegundos
-  GOAL_COL:   4,              // Coluna D → meta (horas)
-  SESSIONS_COL: 5,            // Coluna E → número de sessões
-  UPDATED_COL:  6,            // Coluna F → última atualização
+  SHEET_NAME:  'Registros',       // Nome da aba na planilha
+  TIMEZONE:    'America/Sao_Paulo', // Fuso horário de exibição (GMT-3)
+  TS_COL:      1,             // Coluna A → timestamp do registro (criação/atualização)
+  COMP_COL:    2,             // Coluna B → competência (data da jornada)
+  INICIO_COL:  3,             // Coluna C → horário de início
+  FIM_COL:     4,             // Coluna D → horário de fim
+  SESSION_COL: 5,             // Coluna E → ID da sessão (chave técnica p/ correlacionar início/fim)
 };
 
 // ── GET: retorna o histórico como JSON ────────────────────────
@@ -24,14 +24,13 @@ function doGet(e) {
     // Pula o cabeçalho (linha 1)
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
-      if (!row[0]) continue;  // linha vazia
+      if (!row[CONFIG.SESSION_COL - 1]) continue;  // linha vazia
       rows.push({
-        date:       formatDate(row[CONFIG.DATE_COL - 1]),
-        totalHours: row[CONFIG.HOURS_COL - 1],
-        totalMs:    row[CONFIG.MS_COL - 1],
-        goal:       row[CONFIG.GOAL_COL - 1],
-        sessions:   row[CONFIG.SESSIONS_COL - 1],
-        updatedAt:  row[CONFIG.UPDATED_COL - 1],
+        timestamp:   row[CONFIG.TS_COL - 1],
+        competencia: formatDate(row[CONFIG.COMP_COL - 1]),
+        inicio:      row[CONFIG.INICIO_COL - 1],
+        fim:         row[CONFIG.FIM_COL - 1],
+        sessionId:   row[CONFIG.SESSION_COL - 1],
       });
     }
 
@@ -41,54 +40,57 @@ function doGet(e) {
   }
 }
 
-// ── POST: recebe um registro e salva/atualiza a linha ─────────
+// ── POST: registra início/fim de uma sessão ────────────────────
+// action 'start' → cria a linha com o horário de início
+// action 'end'   → localiza a linha da sessão e preenche o horário de fim
+//                  (se a linha de início não existir, cria uma linha completa)
 function doPost(e) {
   try {
-    const body    = JSON.parse(e.postData.contents);
-    const dateStr = body.date;            // "YYYY-MM-DD"
-    const ms      = Number(body.totalMs);
-    const hours   = Number(body.totalHours);
-    const goalMs  = Number(body.goalMs);
-    const sessions = Number(body.sessions);
+    const body        = JSON.parse(e.postData.contents);
+    const action       = body.action;
+    const sessionId    = String(body.sessionId || '');
+    const competencia  = body.competencia;      // "YYYY-MM-DD"
+    const inicio       = body.inicio;           // ISO string
+    const fim          = body.fim;               // ISO string (só em 'end')
 
-    if (!dateStr || isNaN(ms)) {
-      return jsonResponse({ ok: false, error: 'Campos obrigatórios: date, totalMs' });
+    if (!sessionId || !competencia || !inicio) {
+      return jsonResponse({ ok: false, error: 'Campos obrigatórios: sessionId, competencia, inicio' });
     }
 
-    const sheet    = getSheet();
-    const goalH    = goalMs ? +(goalMs / 3600000).toFixed(4) : 8;
-    const updatedAt = new Date().toISOString();
+    const sheet   = getSheet();
+    const now     = new Date();
+    const rowIdx  = findSessionRow(sheet, sessionId);
 
-    // Procura se já existe uma linha para essa data
-    const values   = sheet.getDataRange().getValues();
-    let targetRow  = -1;
-
-    for (let i = 1; i < values.length; i++) {
-      const cellDate = formatDate(values[i][CONFIG.DATE_COL - 1]);
-      if (cellDate === dateStr) { targetRow = i + 1; break; }
-    }
-
-    if (targetRow > 0) {
-      // Atualiza linha existente
-      sheet.getRange(targetRow, CONFIG.DATE_COL,     1, 1).setValue(new Date(dateStr + 'T12:00:00'));
-      sheet.getRange(targetRow, CONFIG.HOURS_COL,    1, 1).setValue(hours);
-      sheet.getRange(targetRow, CONFIG.MS_COL,       1, 1).setValue(ms);
-      sheet.getRange(targetRow, CONFIG.GOAL_COL,     1, 1).setValue(goalH);
-      sheet.getRange(targetRow, CONFIG.SESSIONS_COL, 1, 1).setValue(sessions);
-      sheet.getRange(targetRow, CONFIG.UPDATED_COL,  1, 1).setValue(updatedAt);
+    if (action === 'start') {
+      if (rowIdx < 0) {
+        sheet.appendRow([
+          now,
+          new Date(competencia + 'T12:00:00'),
+          new Date(inicio),
+          '',
+          sessionId,
+        ]);
+      }
+      // se a linha já existe, não duplica (idempotente para re-sincronizações)
+    } else if (action === 'end') {
+      if (rowIdx > 0) {
+        sheet.getRange(rowIdx, CONFIG.TS_COL,   1, 1).setValue(now);
+        sheet.getRange(rowIdx, CONFIG.FIM_COL,  1, 1).setValue(fim ? new Date(fim) : '');
+      } else {
+        // início não chegou a ser sincronizado — cria a linha já completa
+        sheet.appendRow([
+          now,
+          new Date(competencia + 'T12:00:00'),
+          new Date(inicio),
+          fim ? new Date(fim) : '',
+          sessionId,
+        ]);
+      }
     } else {
-      // Insere nova linha
-      sheet.appendRow([
-        new Date(dateStr + 'T12:00:00'),
-        hours,
-        ms,
-        goalH,
-        sessions,
-        updatedAt,
-      ]);
+      return jsonResponse({ ok: false, error: 'action inválida (use "start" ou "end")' });
     }
 
-    return jsonResponse({ ok: true, date: dateStr, hours, sessions });
+    return jsonResponse({ ok: true, sessionId, action });
   } catch (err) {
     return jsonResponse({ ok: false, error: err.message });
   }
@@ -96,27 +98,46 @@ function doPost(e) {
 
 // ── Helpers ───────────────────────────────────────────────────
 function getSheet() {
-  const ss    = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet   = ss.getSheetByName(CONFIG.SHEET_NAME);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Garante que a planilha exiba os horários no fuso configurado (GMT-3),
+  // independente do fuso padrão da conta Google que criou o documento.
+  if (ss.getSpreadsheetTimeZone() !== CONFIG.TIMEZONE) {
+    ss.setSpreadsheetTimeZone(CONFIG.TIMEZONE);
+  }
+
+  let sheet = ss.getSheetByName(CONFIG.SHEET_NAME);
 
   if (!sheet) {
     // Cria a aba se não existir e escreve o cabeçalho
     sheet = ss.insertSheet(CONFIG.SHEET_NAME);
-    sheet.appendRow(['Data', 'Horas', 'Milissegundos', 'Meta (h)', 'Sessões', 'Atualizado em']);
-    sheet.getRange(1, 1, 1, 6).setFontWeight('bold');
-    sheet.setColumnWidth(1, 110);
-    sheet.setColumnWidth(6, 180);
+    sheet.appendRow(['Timestamp', 'Competência', 'Início', 'Fim', 'ID Sessão']);
+    sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+    sheet.setColumnWidth(1, 150);
+    sheet.setColumnWidth(2, 100);
+    sheet.setColumnWidth(3, 150);
+    sheet.setColumnWidth(4, 150);
+    sheet.setColumnWidth(5, 140);
   }
 
   return sheet;
+}
+
+// Retorna o número da linha (1-based) cujo ID Sessão bate com sessionId, ou -1
+function findSessionRow(sheet, sessionId) {
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][CONFIG.SESSION_COL - 1]) === sessionId) return i + 1;
+  }
+  return -1;
 }
 
 function formatDate(value) {
   if (!value) return '';
   const d = value instanceof Date ? value : new Date(value);
   if (isNaN(d)) return String(value);
-  const y  = d.getFullYear();
-  const m  = String(d.getMonth() + 1).padStart(2, '0');
+  const y   = d.getFullYear();
+  const m   = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }

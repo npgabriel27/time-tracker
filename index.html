@@ -1,4 +1,21 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f0f4ff">
   <title>Registro de Ponto</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Ponto">
+  <meta name="mobile-web-app-capable" content="yes">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap">
 
@@ -21,45 +38,18 @@
     --sans:     'Inter', system-ui, sans-serif;
   }
 
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg:      #07101f;
-      --surf:    #0d1b30;
-      --surf2:   #142035;
-      --border:  #1b2d45;
-      --accent:  #2563eb;
-      --accent2: #60a5fa;
-      --text1:   #dde8ff;
-      --text2:   #5f7fa6;
-      --text3:   #334d6a;
-      --pos:     #10b981;
-      --neg:     #f87171;
-    }
-  }
-
-  :root[data-theme="dark"] {
-    --bg:      #07101f;
-    --surf:    #0d1b30;
-    --surf2:   #142035;
-    --border:  #1b2d45;
-    --accent:  #2563eb;
-    --accent2: #60a5fa;
-    --text1:   #dde8ff;
-    --text2:   #5f7fa6;
-    --text3:   #334d6a;
-    --pos:     #10b981;
-    --neg:     #f87171;
-  }
-
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { -webkit-text-size-adjust: 100%; }
 
   body {
     background: var(--bg);
     color: var(--text1);
     font-family: var(--sans);
     min-height: 100vh;
-    padding-inline: 16px;
-    padding-block: 28px;
+    -webkit-tap-highlight-color: transparent;
+    padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
+    padding-block: calc(28px + env(safe-area-inset-top)) calc(28px + env(safe-area-inset-bottom));
   }
 
   .wrap {
@@ -128,7 +118,7 @@
     font-weight: 500;
   }
 
-  .controls { display: flex; gap: 10px; }
+  .controls { display: flex; gap: 10px; width: 100%; }
 
   .btn {
     font-family: var(--sans);
@@ -136,13 +126,14 @@
     font-weight: 600;
     border: none;
     border-radius: 8px;
-    padding: 10px 22px;
+    padding: 13px 22px;
+    min-height: 44px;
     cursor: pointer;
     transition: background 0.15s, opacity 0.15s;
     line-height: 1;
   }
 
-  .btn-primary { background: var(--accent); color: #fff; min-width: 112px; }
+  .btn-primary { background: var(--accent); color: #fff; flex: 1; min-width: 112px; }
   .btn-primary:hover { background: var(--accent2); }
 
   .btn-ghost {
@@ -304,9 +295,9 @@
     background: var(--surf2);
     border: 1px solid var(--border);
     border-radius: 7px;
-    padding: 8px 11px;
+    padding: 10px 11px;
     font-family: var(--mono);
-    font-size: 0.825rem;
+    font-size: 16px;
     color: var(--text1);
     outline: none;
     transition: border-color 0.15s;
@@ -332,6 +323,8 @@
   .sync-status.ok  { color: var(--pos); }
   .sync-status.err { color: var(--neg); }
   </style>
+</head>
+<body>
 
   <div class="wrap">
 
@@ -505,22 +498,25 @@
   function toggle() {
     if (st.running) {
       // Pause — commit session
-      const elapsed = Date.now() - st.start;
+      const startMs = st.start;
+      const endMs   = Date.now();
+      const elapsed = endMs - startMs;
       const t = isoToday();
       const day = ensureDay(t);
       day.ms += elapsed;
-      day.sessions.push({ s: st.start, e: Date.now(), d: elapsed });
+      day.sessions.push({ s: startMs, e: endMs, d: elapsed });
       st.running = false;
       st.start   = null;
       clearInterval(st.tick);
       st.tick = null;
       save();
-      syncDay(t);
+      syncSessionEnd(startMs, endMs, t);
     } else {
       // Start new session
       st.start   = Date.now();
       st.running = true;
       st.tick    = setInterval(tick, 500);
+      syncSessionStart(st.start, isoToday());
     }
     render();
   }
@@ -673,22 +669,36 @@
   }
 
   // ── Sync ──────────────────────────────────────────────
-  async function syncDay(dateStr) {
+  // Cada sessão vira uma linha na planilha: 'start' cria a linha,
+  // 'end' localiza a linha (pelo sessionId) e preenche o horário de fim.
+  function syncSessionStart(startMs, dateStr) {
     if (!db.url) return;
-    const day = db.days[dateStr];
-    if (!day) return;
+    postSync({
+      action:      'start',
+      sessionId:   String(startMs),
+      competencia: dateStr,
+      inicio:      new Date(startMs).toISOString(),
+    });
+  }
+
+  function syncSessionEnd(startMs, endMs, dateStr) {
+    if (!db.url) return;
+    postSync({
+      action:      'end',
+      sessionId:   String(startMs),
+      competencia: dateStr,
+      inicio:      new Date(startMs).toISOString(),
+      fim:         new Date(endMs).toISOString(),
+    });
+  }
+
+  async function postSync(payload) {
     try {
       await fetch(db.url, {
         method: 'POST',
         mode:   'no-cors',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          date:       dateStr,
-          totalMs:    day.ms,
-          totalHours: +(day.ms / 3600000).toFixed(4),
-          goalMs:     db.goal,
-          sessions:   day.sessions.length,
-        }),
+        body: JSON.stringify(payload),
       });
       setSyncStatus('Sincronizado ✓', 'ok');
     } catch (e) {
@@ -696,10 +706,20 @@
     }
   }
 
+  // Reenvia as sessões de hoje — útil para recuperar syncs que falharam
+  // (ex: sem internet no momento do início/fim). 'start' é idempotente
+  // no Apps Script e 'end' cria a linha caso o início não tenha chegado.
   async function syncNow() {
     if (!db.url) { setSyncStatus('Configure a URL primeiro', 'err'); return; }
     setSyncStatus('Sincronizando…', '');
-    await syncDay(isoToday());
+    const t = isoToday();
+    const sessions = db.days[t]?.sessions || [];
+    for (const s of sessions) {
+      await syncSessionEnd(s.s, s.e, t);
+    }
+    if (st.running) {
+      await syncSessionStart(st.start, t);
+    }
   }
 
   function setSyncStatus(msg, cls) {
@@ -711,4 +731,12 @@
   // ── Init ──────────────────────────────────────────────
   load();
   render();
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
   </script>
+</body>
+</html>
