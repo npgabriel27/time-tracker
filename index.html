@@ -1,0 +1,714 @@
+  <title>Registro de Ponto</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap">
+
+  <style>
+  /* ── Design tokens ── */
+  :root {
+    --bg:       #f0f4ff;
+    --surf:     #ffffff;
+    --surf2:    #e8edf8;
+    --border:   #c5d3eb;
+    --accent:   #1d6fe8;
+    --accent2:  #3b82f6;
+    --text1:    #0f172a;
+    --text2:    #4a6484;
+    --text3:    #8fa8c8;
+    --pos:      #059669;
+    --neg:      #dc2626;
+    --r:        12px;
+    --mono:     'JetBrains Mono', monospace;
+    --sans:     'Inter', system-ui, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:      #07101f;
+      --surf:    #0d1b30;
+      --surf2:   #142035;
+      --border:  #1b2d45;
+      --accent:  #2563eb;
+      --accent2: #60a5fa;
+      --text1:   #dde8ff;
+      --text2:   #5f7fa6;
+      --text3:   #334d6a;
+      --pos:     #10b981;
+      --neg:     #f87171;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg:      #07101f;
+    --surf:    #0d1b30;
+    --surf2:   #142035;
+    --border:  #1b2d45;
+    --accent:  #2563eb;
+    --accent2: #60a5fa;
+    --text1:   #dde8ff;
+    --text2:   #5f7fa6;
+    --text3:   #334d6a;
+    --pos:     #10b981;
+    --neg:     #f87171;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text1);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding-inline: 16px;
+    padding-block: 28px;
+  }
+
+  .wrap {
+    max-width: 500px;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* Header */
+  .hd {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .hd-title {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text2);
+  }
+
+  .hd-date {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Timer card */
+  .timer-card {
+    background: var(--surf);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 32px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .timer-wrap { text-align: center; }
+
+  .timer-digits {
+    font-family: var(--mono);
+    font-size: clamp(3.2rem, 14vw, 5rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--text1);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    transition: color 0.25s;
+  }
+
+  .timer-digits.live { color: var(--accent2); }
+
+  .timer-meta {
+    margin-top: 8px;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    font-weight: 500;
+  }
+
+  .controls { display: flex; gap: 10px; }
+
+  .btn {
+    font-family: var(--sans);
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 22px;
+    cursor: pointer;
+    transition: background 0.15s, opacity 0.15s;
+    line-height: 1;
+  }
+
+  .btn-primary { background: var(--accent); color: #fff; min-width: 112px; }
+  .btn-primary:hover { background: var(--accent2); }
+
+  .btn-ghost {
+    background: var(--surf2);
+    color: var(--text2);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { color: var(--text1); }
+  .btn-ghost:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* Stats grid */
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .stat {
+    background: var(--surf);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 14px 16px;
+  }
+
+  .stat-lbl {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text3);
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+
+  .stat-val {
+    font-family: var(--mono);
+    font-size: 1.4rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    color: var(--text1);
+  }
+
+  .stat-val.pos { color: var(--pos); }
+  .stat-val.neg { color: var(--neg); }
+
+  .stat-sub {
+    font-size: 0.65rem;
+    color: var(--text3);
+    margin-top: 5px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.3;
+  }
+
+  /* History */
+  .sec-hd {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text3);
+    font-weight: 600;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .hist-empty {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--text3);
+    padding: 14px 0;
+  }
+
+  .hist-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .hist-table th {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text3);
+    font-weight: 600;
+    text-align: left;
+    padding: 0 0 8px;
+  }
+
+  .hist-table th:not(:first-child) { text-align: right; }
+
+  .hist-table td {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    padding: 7px 0;
+    border-top: 1px solid var(--border);
+    color: var(--text2);
+    vertical-align: middle;
+  }
+
+  .hist-table td:first-child {
+    font-family: var(--sans);
+    font-size: 0.78rem;
+    color: var(--text2);
+  }
+
+  .hist-table td:not(:first-child) { text-align: right; }
+
+  .d-pos { color: var(--pos); }
+  .d-neg { color: var(--neg); }
+
+  /* Settings */
+  .settings-toggle {
+    all: unset;
+    cursor: pointer;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text3);
+    font-family: var(--sans);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-bottom: 0;
+  }
+
+  .settings-toggle:hover { color: var(--text2); }
+
+  .chevron {
+    display: inline-block;
+    font-style: normal;
+    transition: transform 0.18s;
+    font-size: 0.75rem;
+  }
+  .chevron.open { transform: rotate(90deg); }
+
+  .settings-panel {
+    background: var(--surf);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 18px 20px;
+    display: none;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 8px;
+  }
+  .settings-panel.open { display: flex; }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+
+  .field label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text3);
+    font-weight: 600;
+  }
+
+  .field input {
+    background: var(--surf2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 8px 11px;
+    font-family: var(--mono);
+    font-size: 0.825rem;
+    color: var(--text1);
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+
+  .field input:focus { border-color: var(--accent); }
+
+  .sync-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .sync-status {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--text3);
+    flex: 1;
+  }
+
+  .sync-status.ok  { color: var(--pos); }
+  .sync-status.err { color: var(--neg); }
+  </style>
+
+  <div class="wrap">
+
+    <!-- Header -->
+    <header class="hd">
+      <span class="hd-title">Registro de Ponto</span>
+      <span class="hd-date" id="dateBadge"></span>
+    </header>
+
+    <!-- Timer -->
+    <div class="timer-card">
+      <div class="timer-wrap">
+        <div class="timer-digits" id="timerDigits">00:00:00</div>
+        <div class="timer-meta" id="timerMeta">pronto para iniciar</div>
+      </div>
+      <div class="controls">
+        <button class="btn btn-primary" id="btnToggle" onclick="toggle()">Iniciar</button>
+        <button class="btn btn-ghost" id="btnClear" onclick="clearDay()" disabled>Zerar dia</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-lbl">Hoje</div>
+        <div class="stat-val" id="sToday">0h 00m</div>
+        <div class="stat-sub" id="sMeta">Meta: 8h 00m</div>
+      </div>
+      <div class="stat">
+        <div class="stat-lbl">Banco de horas</div>
+        <div class="stat-val" id="sBank">—</div>
+        <div class="stat-sub" id="sBankSub">vs meta diária</div>
+      </div>
+      <div class="stat">
+        <div class="stat-lbl">Semana</div>
+        <div class="stat-val" id="sWeek">0h 00m</div>
+        <div class="stat-sub" id="sWeekSub">0 dias</div>
+      </div>
+      <div class="stat">
+        <div class="stat-lbl">Média diária</div>
+        <div class="stat-val" id="sAvg">0h 00m</div>
+        <div class="stat-sub">últimos 7 dias</div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div>
+      <div class="sec-hd">Histórico</div>
+      <div id="histWrap"></div>
+    </div>
+
+    <!-- Settings -->
+    <div>
+      <button class="settings-toggle" onclick="toggleSettings()">
+        <i class="chevron" id="chevron">›</i>
+        Configurações
+      </button>
+      <div class="settings-panel" id="settingsPanel">
+        <div class="field">
+          <label>Meta diária (horas)</label>
+          <input type="number" id="goalInput" min="0.5" max="24" step="0.5"
+                value="8" onchange="onGoalChange()">
+        </div>
+        <div class="field">
+          <label>URL do Google Apps Script (opcional)</label>
+          <input type="url" id="urlInput" placeholder="https://script.google.com/macros/s/…/exec"
+                oninput="onUrlChange()">
+        </div>
+        <div class="sync-row">
+          <button class="btn btn-ghost" onclick="syncNow()" style="padding: 7px 14px; font-size:0.8rem;">
+            Sincronizar agora
+          </button>
+          <span class="sync-status" id="syncStatus">sem URL configurada</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+  // ── Store ──────────────────────────────────────────────
+  const STORE_KEY = 'rp_v1';
+
+  let st = {       // runtime state
+    running: false,
+    start: null,   // Date.now() when current session began
+    tick: null,    // interval id
+  };
+
+  let db = {       // persisted
+    days:  {},     // { "YYYY-MM-DD": { ms: number, sessions: [{s,e,d}] } }
+    goal:  8 * 3600000,
+    url:   '',
+  };
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) Object.assign(db, JSON.parse(raw));
+    } catch (_) {}
+  }
+
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(db)); } catch (_) {}
+  }
+
+  // ── Date helpers ───────────────────────────────────────
+  function isoToday() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function ensureDay(d) {
+    if (!db.days[d]) db.days[d] = { ms: 0, sessions: [] };
+    return db.days[d];
+  }
+
+  function todayAccum() {
+    const t = isoToday();
+    const saved = db.days[t]?.ms || 0;
+    const live  = st.running ? (Date.now() - st.start) : 0;
+    return saved + live;
+  }
+
+  function weekDates() {
+    const now = new Date();
+    const dow = now.getDay();                       // 0=Sun
+    const mon = new Date(now);
+    mon.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(mon);
+      d.setDate(mon.getDate() + i);
+      return d.toISOString().slice(0, 10);
+    });
+  }
+
+  function last7() {
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      return d.toISOString().slice(0, 10);
+    });
+  }
+
+  // ── Format ────────────────────────────────────────────
+  function fmtHms(ms) {
+    const abs = Math.abs(ms);
+    const h = Math.floor(abs / 3600000);
+    const m = Math.floor((abs % 3600000) / 60000);
+    const s = Math.floor((abs % 60000) / 1000);
+    return `${pad(h)}:${pad(m)}:${pad(s)}`;
+  }
+
+  function fmtHm(ms) {
+    const sign = ms < 0 ? '-' : '';
+    const abs  = Math.abs(ms);
+    const h    = Math.floor(abs / 3600000);
+    const m    = Math.floor((abs % 3600000) / 60000);
+    return `${sign}${h}h ${pad(m)}m`;
+  }
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function fmtDate(iso) {
+    const [y, mo, d] = iso.split('-');
+    const date = new Date(+y, +mo - 1, +d);
+    const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    return `${days[date.getDay()]} ${d}/${mo}`;
+  }
+
+  // ── Timer ─────────────────────────────────────────────
+  function toggle() {
+    if (st.running) {
+      // Pause — commit session
+      const elapsed = Date.now() - st.start;
+      const t = isoToday();
+      const day = ensureDay(t);
+      day.ms += elapsed;
+      day.sessions.push({ s: st.start, e: Date.now(), d: elapsed });
+      st.running = false;
+      st.start   = null;
+      clearInterval(st.tick);
+      st.tick = null;
+      save();
+      syncDay(t);
+    } else {
+      // Start new session
+      st.start   = Date.now();
+      st.running = true;
+      st.tick    = setInterval(tick, 500);
+    }
+    render();
+  }
+
+  function tick() {
+    const elapsed = Date.now() - st.start;
+    const el = document.getElementById('timerDigits');
+    el.textContent = fmtHms(elapsed);
+    el.classList.add('live');
+    // live stats update
+    updateStats(todayAccum());
+  }
+
+  function clearDay() {
+    if (st.running) return;
+    const t = isoToday();
+    if (!db.days[t]?.ms) return;
+    if (!confirm(`Zerar o registro de hoje (${fmtHm(db.days[t].ms)})?`)) return;
+    delete db.days[t];
+    save();
+    render();
+  }
+
+  // ── Render ────────────────────────────────────────────
+  function render() {
+    const t     = isoToday();
+    const total = todayAccum();
+
+    // Date badge
+    document.getElementById('dateBadge').textContent = fmtDate(t).toLowerCase();
+
+    // Timer display
+    const digEl = document.getElementById('timerDigits');
+    if (!st.running) {
+      digEl.textContent = '00:00:00';
+      digEl.classList.remove('live');
+    }
+
+    // Meta label
+    const sessions = db.days[t]?.sessions?.length || 0;
+    const label = st.running
+      ? `sessão ${sessions + 1} em andamento`
+      : sessions > 0
+        ? `${sessions} sessão${sessions !== 1 ? 'ões' : ''} registrada${sessions !== 1 ? 's' : ''}`
+        : 'pronto para iniciar';
+    document.getElementById('timerMeta').textContent = label;
+
+    // Buttons
+    const btnToggle = document.getElementById('btnToggle');
+    btnToggle.textContent = st.running ? 'Pausar' : (sessions > 0 ? 'Continuar' : 'Iniciar');
+
+    document.getElementById('btnClear').disabled = st.running || sessions === 0;
+
+    // Settings values
+    document.getElementById('goalInput').value = db.goal / 3600000;
+    document.getElementById('urlInput').value  = db.url;
+
+    if (!db.url) {
+      setSyncStatus('sem URL configurada', '');
+    }
+
+    updateStats(total);
+    renderHistory();
+  }
+
+  function updateStats(todayMs) {
+    const t    = isoToday();
+    const bank = todayMs - db.goal;
+
+    // Today
+    document.getElementById('sToday').textContent = fmtHm(todayMs);
+    document.getElementById('sMeta').textContent  = `Meta: ${fmtHm(db.goal)}`;
+
+    // Bank
+    const bankEl = document.getElementById('sBank');
+    if (todayMs === 0) {
+      bankEl.textContent  = '—';
+      bankEl.className    = 'stat-val';
+    } else {
+      bankEl.textContent  = (bank >= 0 ? '+' : '') + fmtHm(bank);
+      bankEl.className    = 'stat-val ' + (bank >= 0 ? 'pos' : 'neg');
+    }
+
+    // Week
+    const wDates = weekDates();
+    let wMs = 0, wDays = 0;
+    wDates.forEach(d => {
+      const ms = d === t ? todayMs : (db.days[d]?.ms || 0);
+      if (ms > 0) { wMs += ms; wDays++; }
+    });
+    document.getElementById('sWeek').textContent    = fmtHm(wMs);
+    document.getElementById('sWeekSub').textContent = `${wDays} dia${wDays !== 1 ? 's' : ''}`;
+
+    // Avg last 7
+    const l7 = last7();
+    let l7Ms = 0, l7Days = 0;
+    l7.forEach(d => {
+      const ms = d === t ? todayMs : (db.days[d]?.ms || 0);
+      if (ms > 0) { l7Ms += ms; l7Days++; }
+    });
+    const avg = l7Days > 0 ? l7Ms / l7Days : 0;
+    document.getElementById('sAvg').textContent = fmtHm(avg);
+  }
+
+  function renderHistory() {
+    const t     = isoToday();
+    const days  = last7().reverse().filter(d => d !== t && db.days[d]?.ms > 0);
+    const el    = document.getElementById('histWrap');
+
+    if (days.length === 0) {
+      el.innerHTML = '<div class="hist-empty">Nenhum registro anterior</div>';
+      return;
+    }
+
+    const rows = days.map(d => {
+      const ms    = db.days[d].ms;
+      const delta = ms - db.goal;
+      const cls   = delta >= 0 ? 'd-pos' : 'd-neg';
+      const sign  = delta >= 0 ? '+' : '';
+      return `<tr>
+        <td>${fmtDate(d)}</td>
+        <td>${fmtHm(ms)}</td>
+        <td class="${cls}">${sign}${fmtHm(delta)}</td>
+      </tr>`;
+    }).join('');
+
+    el.innerHTML = `<table class="hist-table">
+      <thead><tr><th>Dia</th><th>Total</th><th>Desvio</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }
+
+  // ── Settings ──────────────────────────────────────────
+  function toggleSettings() {
+    const panel   = document.getElementById('settingsPanel');
+    const chevron = document.getElementById('chevron');
+    const isOpen  = panel.classList.toggle('open');
+    chevron.classList.toggle('open', isOpen);
+  }
+
+  function onGoalChange() {
+    const v = parseFloat(document.getElementById('goalInput').value);
+    if (v > 0 && v <= 24) { db.goal = v * 3600000; save(); render(); }
+  }
+
+  function onUrlChange() {
+    db.url = document.getElementById('urlInput').value.trim();
+    save();
+    setSyncStatus(db.url ? 'URL salva' : 'sem URL configurada', '');
+  }
+
+  // ── Sync ──────────────────────────────────────────────
+  async function syncDay(dateStr) {
+    if (!db.url) return;
+    const day = db.days[dateStr];
+    if (!day) return;
+    try {
+      await fetch(db.url, {
+        method: 'POST',
+        mode:   'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date:       dateStr,
+          totalMs:    day.ms,
+          totalHours: +(day.ms / 3600000).toFixed(4),
+          goalMs:     db.goal,
+          sessions:   day.sessions.length,
+        }),
+      });
+      setSyncStatus('Sincronizado ✓', 'ok');
+    } catch (e) {
+      setSyncStatus('Erro na sincronização', 'err');
+    }
+  }
+
+  async function syncNow() {
+    if (!db.url) { setSyncStatus('Configure a URL primeiro', 'err'); return; }
+    setSyncStatus('Sincronizando…', '');
+    await syncDay(isoToday());
+  }
+
+  function setSyncStatus(msg, cls) {
+    const el = document.getElementById('syncStatus');
+    el.textContent = msg;
+    el.className   = 'sync-status ' + cls;
+  }
+
+  // ── Init ──────────────────────────────────────────────
+  load();
+  render();
+  </script>
