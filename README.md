@@ -1,6 +1,6 @@
    # Registro de Ponto
 
-   App web simples para controle de horas trabalhadas. Funciona offline via `localStorage` e pode sincronizar com o Google Sheets.
+   App web simples para controle de horas trabalhadas. A planilha do Google Sheets é a fonte da verdade — cada clique registra uma batida (entrada/saída) direto nela, então nada se perde se o iPhone fechar o app em segundo plano.
 
    🔗 **Acesse:** `https://npgabriel27.github.io/time-tracker/`
 
@@ -8,13 +8,18 @@
 
    ## Funcionalidades
 
-   - Cronômetro com iniciar / pausar — acumula várias sessões no mesmo dia
+   - Botão único **Registrar Ponto**: consulta a planilha, sugere entrada ou saída (com base no último registro) e você confirma
+   - Sem cronômetro rodando em background — o "tempo decorrido" é sempre recalculado a partir do último horário registrado na planilha, então fechar o app não faz perder o rastreio
+   - Mostra automaticamente o contexto certo:
+     - **Trabalhando**: desde que horas, tempo da sessão, total do dia, quanto falta para a meta e previsão de saída
+     - **Almoço/intervalo**: quanto tempo de pausa já passou e, se voltar agora, a previsão de saída
+     - **Interjornada** (entre um dia e outro): quanto tempo de descanso, com aviso se for menos de 11h
+     - **Entrada sem saída**: aviso de que um registro pode ter ficado faltando
    - Painel de resumo: horas de hoje, banco de horas, total da semana e média diária
    - Histórico dos últimos dias com desvio em relação à meta
    - Meta diária configurável (padrão: 8h)
-   - Persistência local em `localStorage` — funciona sem internet
-   - Sincronização opcional com Google Sheets via Apps Script
-   - Instalável como app (PWA) — funciona offline e abre em tela cheia
+   - Fila local de envio (`outbox`) — se registrar um ponto sem internet, ele fica salvo no aparelho e é reenviado automaticamente assim que a conexão voltar
+   - Instalável como app (PWA) — funciona offline (consultando o último cache) e abre em tela cheia
    - Notificações push opcionais (meta diária batida / lembrete de iniciar o dia), mesmo com o app fechado
 
    ---
@@ -29,9 +34,9 @@
 
    ---
 
-   ## Setup do Google Apps Script (opcional)
+   ## Setup do Google Apps Script (obrigatório)
 
-   Se você quiser que os registros sejam salvos no Google Sheets, siga os passos abaixo.
+   O app não funciona sem isso — a planilha é a fonte da verdade (é ela que o app consulta para saber se o próximo registro é entrada ou saída). Siga os passos abaixo.
 
    ### 1. Crie uma planilha no Google Sheets
 
@@ -65,7 +70,7 @@
    1. Abra o app em `https://npgabriel27.github.io/time-tracker/`
    2. Clique em **Configurações** (no final da página)
    3. Cole a URL no campo **URL do Google Apps Script**
-   4. A partir de agora, toda vez que você pausar o cronômetro, o registro é enviado para a planilha automaticamente
+   4. A partir de agora, o botão **Registrar Ponto** consulta e grava direto na planilha
 
    ---
 
@@ -134,16 +139,16 @@
 
    ## Estrutura da planilha
 
-   O script cria uma aba chamada **Registros** com uma linha **por sessão** (não por dia):
+   O script cria uma aba chamada **Registros** com uma linha **por batida** (entrada ou saída — não por sessão nem por dia):
 
-   | Timestamp | Competência | Início | Fim | ID Sessão |
-   |-----------|-------------|--------|-----|-----------|
-   | 2026-09-14T18:32:10Z | 2026-09-14 | 2026-09-14T12:00:00Z | 2026-09-14T15:31:40Z | 1757858330000 |
+   | Timestamp | Data | Tipo | Horário | ID |
+   |-----------|------|------|---------|-----|
+   | 2026-09-14T11:32:10Z | 2026-09-14 | entrada | 2026-09-14T11:32:05Z | 1757858330000-a1b2c3 |
+   | 2026-09-14T15:31:40Z | 2026-09-14 | saida | 2026-09-14T15:31:38Z | 1757858421000-d4e5f6 |
 
-   - Ao **iniciar** o cronômetro, uma linha é criada na hora com o horário de início (coluna Fim vazia)
-   - Ao **pausar**, a mesma linha é localizada (pela coluna ID Sessão) e a coluna Fim é preenchida
-   - A coluna **ID Sessão** é uma chave técnica (não editar) usada só para o app encontrar a linha certa ao atualizar
-   - Rodar **Sincronizar agora** reenvia as sessões do dia — seguro mesmo se já estiverem sincronizadas, não duplica linhas
+   - Cada clique em **Confirmar** no app grava uma linha nova — o app decide entrada/saída consultando a última linha da planilha
+   - A coluna **ID** é uma chave técnica (não editar) usada para o app não duplicar uma batida caso reenvie por causa de uma falha de rede
+   - Trocar o formato do `apps-script.gs` no meio do uso (colunas diferentes) faz o script **apagar a aba e recriar o cabeçalho** na próxima chamada — não é reversível, então não implante uma versão nova do script sobre dados que você queira manter
 
    ---
 

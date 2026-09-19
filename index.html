@@ -33,12 +33,15 @@
     --text3:    #8fa8c8;
     --pos:      #059669;
     --neg:      #dc2626;
+    --warn:     #b45309;
     --r:        12px;
     --mono:     'JetBrains Mono', monospace;
     --sans:     'Inter', system-ui, sans-serif;
   }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  [hidden] { display: none !important; }
 
   html { -webkit-text-size-adjust: 100%; }
 
@@ -82,40 +85,64 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Timer card */
-  .timer-card {
+  /* Punch card */
+  .punch-card {
     background: var(--surf);
     border: 1px solid var(--border);
     border-radius: var(--r);
-    padding: 32px 24px 24px;
+    padding: 26px 22px 20px;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 20px;
+    align-items: stretch;
+    gap: 16px;
   }
 
-  .timer-wrap { text-align: center; }
+  .punch-status { text-align: center; }
 
-  .timer-digits {
-    font-family: var(--mono);
-    font-size: clamp(3.2rem, 14vw, 5rem);
+  .punch-main {
+    font-size: 1.2rem;
     font-weight: 700;
-    letter-spacing: -0.03em;
     color: var(--text1);
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
-    transition: color 0.25s;
+    line-height: 1.35;
   }
 
-  .timer-digits.live { color: var(--accent2); }
-
-  .timer-meta {
+  .punch-sub {
     margin-top: 8px;
-    font-size: 0.65rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text3);
-    font-weight: 500;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--text2);
+    line-height: 1.7;
+  }
+
+  .punch-sub div { font-variant-numeric: tabular-nums; }
+
+  .punch-main.warn { color: var(--warn); }
+
+  .radio-group { display: flex; gap: 10px; }
+
+  .radio-opt {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 13px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--surf2);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text2);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+  }
+
+  .radio-opt input { accent-color: var(--accent); width: 17px; height: 17px; }
+
+  .radio-opt.selected {
+    border-color: var(--accent);
+    background: rgba(29, 111, 232, 0.08);
+    color: var(--text1);
   }
 
   .controls { display: flex; gap: 10px; width: 100%; }
@@ -135,6 +162,7 @@
 
   .btn-primary { background: var(--accent); color: #fff; flex: 1; min-width: 112px; }
   .btn-primary:hover { background: var(--accent2); }
+  .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
 
   .btn-ghost {
     background: var(--surf2);
@@ -143,6 +171,41 @@
   }
   .btn-ghost:hover { color: var(--text1); }
   .btn-ghost:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .msg {
+    font-size: 0.78rem;
+    text-align: center;
+    padding: 9px 10px;
+    border-radius: 8px;
+    background: var(--surf2);
+    color: var(--text2);
+  }
+  .msg.ok  { background: rgba(5, 150, 105, 0.1);  color: var(--pos); }
+  .msg.err { background: rgba(220, 38, 38, 0.1);  color: var(--neg); }
+  .msg.warn{ background: rgba(180, 83, 9, 0.1);   color: var(--warn); }
+
+  .refresh-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .link-btn {
+    all: unset;
+    cursor: pointer;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--text3);
+    font-family: var(--sans);
+  }
+  .link-btn:hover { color: var(--text2); }
+
+  .refresh-info {
+    font-size: 0.66rem;
+    color: var(--text3);
+    font-family: var(--mono);
+  }
 
   /* Stats grid */
   .stats {
@@ -334,15 +397,34 @@
       <span class="hd-date" id="dateBadge"></span>
     </header>
 
-    <!-- Timer -->
-    <div class="timer-card">
-      <div class="timer-wrap">
-        <div class="timer-digits" id="timerDigits">00:00:00</div>
-        <div class="timer-meta" id="timerMeta">pronto para iniciar</div>
+    <!-- Punch card -->
+    <div class="punch-card">
+      <div class="punch-status">
+        <div class="punch-main" id="punchMain">Carregando…</div>
+        <div class="punch-sub" id="punchSub"></div>
       </div>
+
+      <div class="radio-group" id="radioGroup" hidden>
+        <label class="radio-opt" id="optEntrada">
+          <input type="radio" name="tipo" value="entrada" onchange="onTipoChange('entrada')">
+          Entrada
+        </label>
+        <label class="radio-opt" id="optSaida">
+          <input type="radio" name="tipo" value="saida" onchange="onTipoChange('saida')">
+          Saída
+        </label>
+      </div>
+
       <div class="controls">
-        <button class="btn btn-primary" id="btnToggle" onclick="toggle()">Iniciar</button>
-        <button class="btn btn-ghost" id="btnClear" onclick="clearDay()" disabled>Zerar dia</button>
+        <button class="btn btn-primary" id="btnPunch" onclick="onPunchClick()">Registrar Ponto</button>
+        <button class="btn btn-ghost" id="btnCancel" onclick="onCancelClick()" hidden>Cancelar</button>
+      </div>
+
+      <div class="msg" id="msgBox" hidden></div>
+
+      <div class="refresh-row">
+        <button class="link-btn" id="btnRefresh" onclick="onRefreshClick()">↻ Atualizar</button>
+        <span class="refresh-info" id="refreshInfo"></span>
       </div>
     </div>
 
@@ -389,13 +471,13 @@
                 value="8" onchange="onGoalChange()">
         </div>
         <div class="field">
-          <label>URL do Google Apps Script (opcional)</label>
+          <label>URL do Google Apps Script</label>
           <input type="url" id="urlInput" placeholder="https://script.google.com/macros/s/…/exec"
                 oninput="onUrlChange()">
         </div>
         <div class="sync-row">
-          <button class="btn btn-ghost" onclick="syncNow()" style="padding: 7px 14px; font-size:0.8rem;">
-            Sincronizar agora
+          <button class="btn btn-ghost" onclick="onManualSync()" style="padding: 7px 14px; font-size:0.8rem;">
+            Atualizar agora
           </button>
           <span class="sync-status" id="syncStatus">sem URL configurada</span>
         </div>
@@ -416,25 +498,35 @@
 
   <script>
   // ── Store ──────────────────────────────────────────────
-  const STORE_KEY = 'rp_v1';
+  // Modelo novo: a fonte da verdade é a planilha (uma linha por batida:
+  // entrada/saída). O app nunca roda um cronômetro em background — cada
+  // clique consulta/grava a planilha, e o "tempo decorrido" mostrado é
+  // sempre recalculado a partir de now() - horário do último registro.
+  // Isso elimina o bug de perder o rastreio quando o iOS mata a aba.
+  const STORE_KEY = 'rp_v2';
 
-  // Preencher após publicar o Worker (ver seção "Setup do Cloudflare Worker" no README)
+  // Preenchido após publicar o Worker (ver seção "Setup do Cloudflare Worker" no README)
   const VAPID_PUBLIC_KEY = 'BDzLdoQ-sSlYrtgMsLFqCQt0fdlpH021ACMLciZZRBkMx4nhhJLcVJmFxb2mT47X5KbFCgl6gwWar7Rga5mVx3E';
   const WORKER_URL       = 'https://time-tracker-push.np-gabriel.workers.dev';
   const PUSH_AUTH_TOKEN  = '99e38234cabe8fbebc1af93213ad16c503c16bbda9d387cd'; // só evita spam no KV, não é segurança real
 
-  let st = {       // runtime state
-    running: false,
-    start: null,   // Date.now() when current session began
-    tick: null,    // interval id
-  };
+  const FETCH_DAYS = 45; // janela de histórico consultada na planilha
 
-  let db = {       // persisted
-    days:  {},     // { "YYYY-MM-DD": { ms: number, sessions: [{s,e,d}] } }
+  let db = {       // persisted (localStorage)
     goal:  8 * 3600000,
     url:   '',
     notifyEnabled:     false,
     startReminderTime: '09:15',
+    cache: { records: [], fetchedAt: 0 },
+    outbox: [],    // batidas ainda não confirmadas pela planilha (retry automático)
+  };
+
+  let st = {       // runtime state (não persistido)
+    phase: 'idle', // idle | loading | confirm | sending
+    status: null,  // snapshot de computeStatus() usado na tela de confirmação
+    selectedTipo: 'entrada',
+    tick: null,
+    msgTimeout: null,
   };
 
   function load() {
@@ -442,28 +534,23 @@
       const raw = localStorage.getItem(STORE_KEY);
       if (raw) Object.assign(db, JSON.parse(raw));
     } catch (_) {}
+    if (!db.cache) db.cache = { records: [], fetchedAt: 0 };
+    if (!Array.isArray(db.outbox)) db.outbox = [];
   }
 
   function save() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(db)); } catch (_) {}
   }
 
-  // ── Date helpers ───────────────────────────────────────
-  function isoToday() {
-    return new Date().toISOString().slice(0, 10);
+  // ── Date helpers (sempre horário local — evita virar o dia perto da meia-noite em UTC) ──
+  function localIsoDate(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
 
-  function ensureDay(d) {
-    if (!db.days[d]) db.days[d] = { ms: 0, sessions: [] };
-    return db.days[d];
-  }
-
-  function todayAccum() {
-    const t = isoToday();
-    const saved = db.days[t]?.ms || 0;
-    const live  = st.running ? (Date.now() - st.start) : 0;
-    return saved + live;
-  }
+  function isoToday() { return localIsoDate(new Date()); }
 
   function weekDates() {
     const now = new Date();
@@ -473,7 +560,7 @@
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(mon);
       d.setDate(mon.getDate() + i);
-      return d.toISOString().slice(0, 10);
+      return localIsoDate(d);
     });
   }
 
@@ -481,25 +568,21 @@
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - (6 - i));
-      return d.toISOString().slice(0, 10);
+      return localIsoDate(d);
     });
   }
 
   // ── Format ────────────────────────────────────────────
-  function fmtHms(ms) {
-    const abs = Math.abs(ms);
-    const h = Math.floor(abs / 3600000);
-    const m = Math.floor((abs % 3600000) / 60000);
-    const s = Math.floor((abs % 60000) / 1000);
-    return `${pad(h)}:${pad(m)}:${pad(s)}`;
-  }
-
   function fmtHm(ms) {
     const sign = ms < 0 ? '-' : '';
     const abs  = Math.abs(ms);
     const h    = Math.floor(abs / 3600000);
     const m    = Math.floor((abs % 3600000) / 60000);
     return `${sign}${h}h ${pad(m)}m`;
+  }
+
+  function fmtTime(date) {
+    return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }
 
   function pad(n) { return String(n).padStart(2, '0'); }
@@ -511,145 +594,402 @@
     return `${days[date.getDay()]} ${d}/${mo}`;
   }
 
-  // ── Timer ─────────────────────────────────────────────
-  function toggle() {
-    if (st.running) {
-      // Pause — commit session
-      const startMs = st.start;
-      const endMs   = Date.now();
-      const elapsed = endMs - startMs;
-      const t = isoToday();
-      const day = ensureDay(t);
-      day.ms += elapsed;
-      day.sessions.push({ s: startMs, e: endMs, d: elapsed });
-      st.running = false;
-      st.start   = null;
-      clearInterval(st.tick);
-      st.tick = null;
+  // ── Status: deriva o estado atual a partir das batidas ─────────────
+  // Regras:
+  //  - último registro = "entrada"           → trabalhando agora
+  //  - último = "saída" no mesmo dia         → intervalo/almoço em andamento
+  //  - último = "saída" em dia anterior      → interjornada (descanso entre dias)
+  //  - último = "entrada" em dia anterior    → esqueceu de bater saída (anomalia)
+  function pairSums(dayRecordsSorted) {
+    let ms = 0;
+    let open = null;
+    for (const r of dayRecordsSorted) {
+      if (r.tipo === 'entrada') {
+        open = r;
+      } else if (r.tipo === 'saida' && open) {
+        ms += new Date(r.horario).getTime() - new Date(open.horario).getTime();
+        open = null;
+      }
+    }
+    return { ms, open };
+  }
+
+  function computeStatus(records) {
+    const sorted = [...records].sort((a, b) => new Date(a.horario) - new Date(b.horario));
+    const today = isoToday();
+    const todayRecords = sorted.filter(r => r.competencia === today);
+    const last = sorted[sorted.length - 1] || null;
+    const { ms: workedTodayMs, open } = pairSums(todayRecords);
+    const now = Date.now();
+
+    if (!last) {
+      return { kind: 'empty', defaultTipo: 'entrada', workedTodayMs: 0, todayRecords };
+    }
+
+    if (open) {
+      const elapsedMs = now - new Date(open.horario).getTime();
+      return {
+        kind: 'working', defaultTipo: 'saida', last: open,
+        elapsedMs, workedTodayMs, liveTotalMs: workedTodayMs + elapsedMs, todayRecords,
+      };
+    }
+
+    if (last.tipo === 'saida' && last.competencia === today) {
+      return {
+        kind: 'break', defaultTipo: 'entrada', last,
+        elapsedMs: now - new Date(last.horario).getTime(), workedTodayMs, todayRecords,
+      };
+    }
+
+    const elapsedMs = now - new Date(last.horario).getTime();
+    return {
+      kind: last.tipo === 'entrada' ? 'missing-checkout' : 'rest',
+      defaultTipo: last.tipo === 'entrada' ? 'saida' : 'entrada',
+      last, elapsedMs, workedTodayMs, todayRecords,
+    };
+  }
+
+  function liveTodayMs(status) {
+    return status.kind === 'working' ? status.liveTotalMs : (status.workedTodayMs || 0);
+  }
+
+  function dayTotals(records) {
+    const byDay = {};
+    for (const r of records) (byDay[r.competencia] ||= []).push(r);
+    const totals = {};
+    for (const day in byDay) {
+      const sorted = byDay[day].sort((a, b) => new Date(a.horario) - new Date(b.horario));
+      totals[day] = pairSums(sorted).ms;
+    }
+    return totals;
+  }
+
+  // ── Dados: cache local + planilha ───────────────────────
+  function mergedRecords() {
+    const byId = new Map();
+    for (const r of db.cache.records) byId.set(r.id, r);
+    for (const r of db.outbox) byId.set(r.id, r); // otimista: reflete batidas ainda não confirmadas
+    return [...byId.values()];
+  }
+
+  async function fetchRecords() {
+    const res = await fetch(`${db.url}?days=${FETCH_DAYS}`);
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || 'erro desconhecido');
+    return json.records;
+  }
+
+  async function postPunch(payload) {
+    const res = await fetch(db.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // evita preflight CORS no Apps Script
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || 'erro desconhecido');
+    return json;
+  }
+
+  async function refreshRecords() {
+    if (!db.url) return;
+    try {
+      const records = await fetchRecords();
+      db.cache = { records, fetchedAt: Date.now() };
+      // remove do outbox qualquer batida que já apareceu na planilha
+      const ids = new Set(records.map(r => r.id));
+      db.outbox = db.outbox.filter(p => !ids.has(p.id));
       save();
-      postState(false, null, day.ms);
-      syncSessionEnd(startMs, endMs, t);
-    } else {
-      // Start new session
-      st.start   = Date.now();
-      st.running = true;
-      st.tick    = setInterval(tick, 500);
-      syncSessionStart(st.start, isoToday());
-      postState(true, st.start, db.days[isoToday()]?.ms || 0);
+      setSyncStatus(`Atualizado às ${fmtTime(new Date())}`, 'ok');
+    } catch (e) {
+      setSyncStatus('Erro ao atualizar (offline?)', 'err');
     }
     render();
   }
 
-  function tick() {
-    const elapsed = Date.now() - st.start;
-    const el = document.getElementById('timerDigits');
-    el.textContent = fmtHms(elapsed);
-    el.classList.add('live');
-    // live stats update
-    updateStats(todayAccum());
+  async function flushOutbox() {
+    if (!db.url || !navigator.onLine || db.outbox.length === 0) return;
+    for (const payload of [...db.outbox]) {
+      try {
+        await postPunch(payload);
+        db.outbox = db.outbox.filter(p => p.id !== payload.id);
+        save();
+      } catch (_) {
+        break; // mantém ordem; tenta o resto depois
+      }
+    }
+    render();
   }
 
-  function clearDay() {
-    if (st.running) return;
-    const t = isoToday();
-    if (!db.days[t]?.ms) return;
-    if (!confirm(`Zerar o registro de hoje (${fmtHm(db.days[t].ms)})?`)) return;
-    delete db.days[t];
-    save();
+  function genId() {
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  // ── Fluxo de registro (2 cliques) ───────────────────────
+  async function onPunchClick() {
+    if (!db.url) { toggleSettings(true); return; }
+    if (st.phase !== 'idle') return;
+
+    st.phase = 'loading';
     render();
+    await refreshRecords();
+
+    st.status = computeStatus(mergedRecords());
+    st.selectedTipo = st.status.defaultTipo;
+    st.phase = 'confirm';
+    render();
+  }
+
+  function onCancelClick() {
+    st.phase = 'idle';
+    st.status = null;
+    render();
+  }
+
+  function onTipoChange(tipo) {
+    st.selectedTipo = tipo;
+    render();
+  }
+
+  async function onConfirmClick() {
+    if (st.phase !== 'confirm') return;
+    const horario = new Date();
+    const payload = {
+      id: genId(),
+      tipo: st.selectedTipo,
+      horario: horario.toISOString(),
+      competencia: localIsoDate(horario),
+    };
+
+    st.phase = 'sending';
+    render();
+
+    db.outbox.push(payload);
+    save();
+
+    let ok = true;
+    try {
+      await postPunch(payload);
+      db.outbox = db.outbox.filter(p => p.id !== payload.id);
+      save();
+    } catch (e) {
+      ok = false;
+    }
+
+    st.phase = 'idle';
+    st.status = null;
+    render();
+
+    const label = payload.tipo === 'entrada' ? 'Entrada' : 'Saída';
+    if (ok) {
+      showMsg(`✓ ${label} registrada às ${fmtTime(horario)}`, 'ok');
+      refreshRecords();
+    } else {
+      showMsg(`${label} salva localmente — sem internet, será enviada ao reconectar`, 'warn');
+    }
+
+    postWorkerState();
+  }
+
+  async function onRefreshClick() {
+    await refreshRecords();
+    await flushOutbox();
+  }
+
+  async function onManualSync() {
+    if (!db.url) { setSyncStatus('Configure a URL primeiro', 'err'); return; }
+    setSyncStatus('Sincronizando…', '');
+    await refreshRecords();
+    await flushOutbox();
+  }
+
+  function showMsg(text, cls) {
+    const el = document.getElementById('msgBox');
+    el.textContent = text;
+    el.className = 'msg ' + cls;
+    el.hidden = false;
+    clearTimeout(st.msgTimeout);
+    st.msgTimeout = setTimeout(() => { el.hidden = true; }, 6000);
+  }
+
+  // ── Push notifications: mantém o Worker informado do estado atual ──
+  function postWorkerState() {
+    const status = computeStatus(mergedRecords());
+    const isRunning = status.kind === 'working';
+    postState(isRunning, isRunning ? new Date(status.last.horario).getTime() : null, status.workedTodayMs);
   }
 
   // ── Render ────────────────────────────────────────────
   function render() {
-    const t     = isoToday();
-    const total = todayAccum();
+    document.getElementById('dateBadge').textContent = fmtDate(isoToday()).toLowerCase();
 
-    // Date badge
-    document.getElementById('dateBadge').textContent = fmtDate(t).toLowerCase();
+    renderPunchCard();
+    updateStats();
+    renderHistory();
 
-    // Timer display
-    const digEl = document.getElementById('timerDigits');
-    if (!st.running) {
-      digEl.textContent = '00:00:00';
-      digEl.classList.remove('live');
-    }
-
-    // Meta label
-    const sessions = db.days[t]?.sessions?.length || 0;
-    const label = st.running
-      ? `sessão ${sessions + 1} em andamento`
-      : sessions > 0
-        ? `${sessions} sessão${sessions !== 1 ? 'ões' : ''} registrada${sessions !== 1 ? 's' : ''}`
-        : 'pronto para iniciar';
-    document.getElementById('timerMeta').textContent = label;
-
-    // Buttons
-    const btnToggle = document.getElementById('btnToggle');
-    btnToggle.textContent = st.running ? 'Pausar' : (sessions > 0 ? 'Continuar' : 'Iniciar');
-
-    document.getElementById('btnClear').disabled = st.running || sessions === 0;
-
-    // Settings values
     document.getElementById('goalInput').value = db.goal / 3600000;
     document.getElementById('urlInput').value  = db.url;
     document.getElementById('reminderTimeInput').value = db.startReminderTime;
     document.getElementById('btnNotify').textContent =
       db.notifyEnabled ? 'Desativar notificações' : 'Ativar notificações';
 
-    if (!db.url) {
-      setSyncStatus('sem URL configurada', '');
-    }
-    if (!db.notifyEnabled) {
-      setNotifyStatus('notificações desativadas', '');
-    }
-
-    updateStats(total);
-    renderHistory();
+    if (!db.url) setSyncStatus('sem URL configurada', '');
+    if (!db.notifyEnabled) setNotifyStatus('notificações desativadas', '');
   }
 
-  function updateStats(todayMs) {
-    const t    = isoToday();
+  function renderPunchCard() {
+    const mainEl   = document.getElementById('punchMain');
+    const subEl    = document.getElementById('punchSub');
+    const btnPunch = document.getElementById('btnPunch');
+    const btnCancel= document.getElementById('btnCancel');
+    const radioGrp = document.getElementById('radioGroup');
+    const refreshInfo = document.getElementById('refreshInfo');
+
+    mainEl.classList.remove('warn');
+
+    if (!db.url) {
+      mainEl.textContent = 'Configure o Google Sheets';
+      subEl.innerHTML = '<div>Abra Configurações e cole a URL do Apps Script para começar a registrar pontos.</div>';
+    } else if (st.phase === 'idle' || st.phase === 'loading' || st.phase === 'sending') {
+      const status = computeStatus(mergedRecords());
+      paintStatus(status, mainEl, subEl);
+    } else if (st.phase === 'confirm' && st.status) {
+      paintStatus(st.status, mainEl, subEl);
+    }
+
+    // Botões
+    if (st.phase === 'idle') {
+      btnPunch.textContent = 'Registrar Ponto';
+      btnPunch.disabled = false;
+      btnPunch.onclick = onPunchClick;
+      btnCancel.hidden = true;
+      radioGrp.hidden = true;
+    } else if (st.phase === 'loading') {
+      btnPunch.textContent = 'Consultando…';
+      btnPunch.disabled = true;
+      btnCancel.hidden = true;
+      radioGrp.hidden = true;
+    } else if (st.phase === 'confirm') {
+      const label = st.selectedTipo === 'entrada' ? 'Entrada' : 'Saída';
+      btnPunch.textContent = `Confirmar ${label}`;
+      btnPunch.disabled = false;
+      btnPunch.onclick = onConfirmClick;
+      btnCancel.hidden = false;
+      radioGrp.hidden = false;
+      document.getElementById('optEntrada').classList.toggle('selected', st.selectedTipo === 'entrada');
+      document.getElementById('optSaida').classList.toggle('selected', st.selectedTipo === 'saida');
+      document.querySelector('#optEntrada input').checked = st.selectedTipo === 'entrada';
+      document.querySelector('#optSaida input').checked = st.selectedTipo === 'saida';
+    } else if (st.phase === 'sending') {
+      btnPunch.textContent = 'Enviando…';
+      btnPunch.disabled = true;
+      btnCancel.hidden = true;
+      radioGrp.hidden = true;
+    }
+
+    if (db.url) {
+      if (db.cache.fetchedAt) {
+        refreshInfo.textContent = `atualizado às ${fmtTime(new Date(db.cache.fetchedAt))}`;
+      } else {
+        refreshInfo.textContent = 'nunca sincronizado';
+      }
+      if (db.outbox.length > 0) {
+        refreshInfo.textContent += ` · ${db.outbox.length} pendente${db.outbox.length > 1 ? 's' : ''}`;
+      }
+    } else {
+      refreshInfo.textContent = '';
+    }
+  }
+
+  function paintStatus(status, mainEl, subEl) {
+    const sub = [];
+
+    if (status.kind === 'empty') {
+      mainEl.textContent = 'Nenhum registro ainda';
+      sub.push('Bata o primeiro ponto para começar.');
+    } else if (status.kind === 'working') {
+      const startedAt = new Date(status.last.horario);
+      mainEl.textContent = `Trabalhando desde ${fmtTime(startedAt)}`;
+      sub.push(`Sessão atual: ${fmtHm(status.elapsedMs)}`);
+      sub.push(`Total hoje: ${fmtHm(status.liveTotalMs)}`);
+      const remaining = db.goal - status.liveTotalMs;
+      if (remaining > 0) {
+        const eta = new Date(Date.now() + remaining);
+        sub.push(`Faltam ${fmtHm(remaining)} p/ meta · previsão de saída: ${fmtTime(eta)}`);
+      } else {
+        sub.push(`<span class="d-pos">Meta batida! +${fmtHm(-remaining)} de banco</span>`);
+      }
+    } else if (status.kind === 'break') {
+      const startedAt = new Date(status.last.horario);
+      const label = status.todayRecords.length === 2 ? 'Almoço' : 'Intervalo';
+      mainEl.textContent = `${label} desde ${fmtTime(startedAt)}`;
+      sub.push(`Pausa: ${fmtHm(status.elapsedMs)}`);
+      sub.push(`Trabalhado até agora: ${fmtHm(status.workedTodayMs)}`);
+      const remaining = db.goal - status.workedTodayMs;
+      if (remaining > 0) {
+        const eta = new Date(Date.now() + remaining);
+        sub.push(`Se voltar agora, previsão de saída: ${fmtTime(eta)}`);
+      } else {
+        sub.push(`<span class="d-pos">Meta já batida hoje (+${fmtHm(-remaining)})</span>`);
+      }
+    } else if (status.kind === 'rest') {
+      const endedAt = new Date(status.last.horario);
+      mainEl.textContent = `Última saída: ${fmtDate(status.last.competencia).toLowerCase()} às ${fmtTime(endedAt)}`;
+      const restHours = status.elapsedMs / 3600000;
+      const cls = restHours >= 11 ? 'd-pos' : 'd-neg';
+      sub.push(`Descanso: <span class="${cls}">${fmtHm(status.elapsedMs)}</span>${restHours < 11 ? ' (mínimo legal: 11h)' : ''}`);
+    } else if (status.kind === 'missing-checkout') {
+      mainEl.classList.add('warn');
+      const startedAt = new Date(status.last.horario);
+      mainEl.textContent = `⚠️ Entrada sem saída`;
+      sub.push(`Última entrada: ${fmtDate(status.last.competencia).toLowerCase()} às ${fmtTime(startedAt)}`);
+      sub.push('Confira o histórico — parece que uma saída não foi registrada.');
+    }
+
+    subEl.innerHTML = sub.map(l => `<div>${l}</div>`).join('');
+  }
+
+  function updateStats() {
+    const t = isoToday();
+    const status = computeStatus(mergedRecords());
+    const todayMs = liveTodayMs(status);
+    const totals = dayTotals(mergedRecords());
     const bank = todayMs - db.goal;
 
-    // Today
     document.getElementById('sToday').textContent = fmtHm(todayMs);
     document.getElementById('sMeta').textContent  = `Meta: ${fmtHm(db.goal)}`;
 
-    // Bank
     const bankEl = document.getElementById('sBank');
     if (todayMs === 0) {
-      bankEl.textContent  = '—';
-      bankEl.className    = 'stat-val';
+      bankEl.textContent = '—';
+      bankEl.className   = 'stat-val';
     } else {
-      bankEl.textContent  = (bank >= 0 ? '+' : '') + fmtHm(bank);
-      bankEl.className    = 'stat-val ' + (bank >= 0 ? 'pos' : 'neg');
+      bankEl.textContent = (bank >= 0 ? '+' : '') + fmtHm(bank);
+      bankEl.className   = 'stat-val ' + (bank >= 0 ? 'pos' : 'neg');
     }
 
-    // Week
     const wDates = weekDates();
     let wMs = 0, wDays = 0;
     wDates.forEach(d => {
-      const ms = d === t ? todayMs : (db.days[d]?.ms || 0);
+      const ms = d === t ? todayMs : (totals[d] || 0);
       if (ms > 0) { wMs += ms; wDays++; }
     });
     document.getElementById('sWeek').textContent    = fmtHm(wMs);
     document.getElementById('sWeekSub').textContent = `${wDays} dia${wDays !== 1 ? 's' : ''}`;
 
-    // Avg last 7
     const l7 = last7();
     let l7Ms = 0, l7Days = 0;
     l7.forEach(d => {
-      const ms = d === t ? todayMs : (db.days[d]?.ms || 0);
+      const ms = d === t ? todayMs : (totals[d] || 0);
       if (ms > 0) { l7Ms += ms; l7Days++; }
     });
-    const avg = l7Days > 0 ? l7Ms / l7Days : 0;
-    document.getElementById('sAvg').textContent = fmtHm(avg);
+    document.getElementById('sAvg').textContent = fmtHm(l7Days > 0 ? l7Ms / l7Days : 0);
   }
 
   function renderHistory() {
-    const t     = isoToday();
-    const days  = last7().reverse().filter(d => d !== t && db.days[d]?.ms > 0);
-    const el    = document.getElementById('histWrap');
+    const t = isoToday();
+    const totals = dayTotals(mergedRecords());
+    const days = last7().reverse().filter(d => d !== t && totals[d] > 0);
+    const el = document.getElementById('histWrap');
 
     if (days.length === 0) {
       el.innerHTML = '<div class="hist-empty">Nenhum registro anterior</div>';
@@ -657,7 +997,7 @@
     }
 
     const rows = days.map(d => {
-      const ms    = db.days[d].ms;
+      const ms    = totals[d];
       const delta = ms - db.goal;
       const cls   = delta >= 0 ? 'd-pos' : 'd-neg';
       const sign  = delta >= 0 ? '+' : '';
@@ -675,10 +1015,10 @@
   }
 
   // ── Settings ──────────────────────────────────────────
-  function toggleSettings() {
+  function toggleSettings(forceOpen) {
     const panel   = document.getElementById('settingsPanel');
     const chevron = document.getElementById('chevron');
-    const isOpen  = panel.classList.toggle('open');
+    const isOpen  = forceOpen ? (panel.classList.add('open'), true) : panel.classList.toggle('open');
     chevron.classList.toggle('open', isOpen);
   }
 
@@ -696,6 +1036,8 @@
     db.url = document.getElementById('urlInput').value.trim();
     save();
     setSyncStatus(db.url ? 'URL salva' : 'sem URL configurada', '');
+    render();
+    if (db.url) refreshRecords();
   }
 
   function onReminderTimeChange() {
@@ -798,60 +1140,6 @@
     el.className   = 'sync-status ' + cls;
   }
 
-  // ── Sync ──────────────────────────────────────────────
-  // Cada sessão vira uma linha na planilha: 'start' cria a linha,
-  // 'end' localiza a linha (pelo sessionId) e preenche o horário de fim.
-  function syncSessionStart(startMs, dateStr) {
-    if (!db.url) return;
-    postSync({
-      action:      'start',
-      sessionId:   String(startMs),
-      competencia: dateStr,
-      inicio:      new Date(startMs).toISOString(),
-    });
-  }
-
-  function syncSessionEnd(startMs, endMs, dateStr) {
-    if (!db.url) return;
-    postSync({
-      action:      'end',
-      sessionId:   String(startMs),
-      competencia: dateStr,
-      inicio:      new Date(startMs).toISOString(),
-      fim:         new Date(endMs).toISOString(),
-    });
-  }
-
-  async function postSync(payload) {
-    try {
-      await fetch(db.url, {
-        method: 'POST',
-        mode:   'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      setSyncStatus('Sincronizado ✓', 'ok');
-    } catch (e) {
-      setSyncStatus('Erro na sincronização', 'err');
-    }
-  }
-
-  // Reenvia as sessões de hoje — útil para recuperar syncs que falharam
-  // (ex: sem internet no momento do início/fim). 'start' é idempotente
-  // no Apps Script e 'end' cria a linha caso o início não tenha chegado.
-  async function syncNow() {
-    if (!db.url) { setSyncStatus('Configure a URL primeiro', 'err'); return; }
-    setSyncStatus('Sincronizando…', '');
-    const t = isoToday();
-    const sessions = db.days[t]?.sessions || [];
-    for (const s of sessions) {
-      await syncSessionEnd(s.s, s.e, t);
-    }
-    if (st.running) {
-      await syncSessionStart(st.start, t);
-    }
-  }
-
   function setSyncStatus(msg, cls) {
     const el = document.getElementById('syncStatus');
     el.textContent = msg;
@@ -861,6 +1149,19 @@
   // ── Init ──────────────────────────────────────────────
   load();
   render();
+
+  // Recalcula os textos de tempo decorrido periodicamente (sem refazer rede)
+  st.tick = setInterval(() => { if (st.phase === 'idle') render(); }, 30000);
+
+  window.addEventListener('online', flushOutbox);
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && st.phase === 'idle') {
+      refreshRecords();
+      flushOutbox();
+    }
+  });
+
+  if (db.url) { refreshRecords(); flushOutbox(); }
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
