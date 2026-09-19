@@ -399,6 +399,16 @@
           </button>
           <span class="sync-status" id="syncStatus">sem URL configurada</span>
         </div>
+        <div class="field">
+          <label>Lembrar de iniciar às</label>
+          <input type="time" id="reminderTimeInput" value="09:15" onchange="onReminderTimeChange()">
+        </div>
+        <div class="sync-row">
+          <button class="btn btn-ghost" id="btnNotify" onclick="toggleNotifications()" style="padding: 7px 14px; font-size:0.8rem;">
+            Ativar notificações
+          </button>
+          <span class="sync-status" id="notifyStatus">notificações desativadas</span>
+        </div>
       </div>
     </div>
 
@@ -407,6 +417,11 @@
   <script>
   // ── Store ──────────────────────────────────────────────
   const STORE_KEY = 'rp_v1';
+
+  // Preencher após publicar o Worker (ver seção "Setup do Cloudflare Worker" no README)
+  const VAPID_PUBLIC_KEY = 'BDzLdoQ-sSlYrtgMsLFqCQt0fdlpH021ACMLciZZRBkMx4nhhJLcVJmFxb2mT47X5KbFCgl6gwWar7Rga5mVx3E';
+  const WORKER_URL       = 'https://time-tracker-push.np-gabriel.workers.dev';
+  const PUSH_AUTH_TOKEN  = '99e38234cabe8fbebc1af93213ad16c503c16bbda9d387cd'; // só evita spam no KV, não é segurança real
 
   let st = {       // runtime state
     running: false,
@@ -418,6 +433,8 @@
     days:  {},     // { "YYYY-MM-DD": { ms: number, sessions: [{s,e,d}] } }
     goal:  8 * 3600000,
     url:   '',
+    notifyEnabled:     false,
+    startReminderTime: '09:15',
   };
 
   function load() {
@@ -510,6 +527,7 @@
       clearInterval(st.tick);
       st.tick = null;
       save();
+      postState(false, null, day.ms);
       syncSessionEnd(startMs, endMs, t);
     } else {
       // Start new session
@@ -517,6 +535,7 @@
       st.running = true;
       st.tick    = setInterval(tick, 500);
       syncSessionStart(st.start, isoToday());
+      postState(true, st.start, db.days[isoToday()]?.ms || 0);
     }
     render();
   }
@@ -573,9 +592,15 @@
     // Settings values
     document.getElementById('goalInput').value = db.goal / 3600000;
     document.getElementById('urlInput').value  = db.url;
+    document.getElementById('reminderTimeInput').value = db.startReminderTime;
+    document.getElementById('btnNotify').textContent =
+      db.notifyEnabled ? 'Desativar notificações' : 'Ativar notificações';
 
     if (!db.url) {
       setSyncStatus('sem URL configurada', '');
+    }
+    if (!db.notifyEnabled) {
+      setNotifyStatus('notificações desativadas', '');
     }
 
     updateStats(total);
@@ -659,13 +684,118 @@
 
   function onGoalChange() {
     const v = parseFloat(document.getElementById('goalInput').value);
-    if (v > 0 && v <= 24) { db.goal = v * 3600000; save(); render(); }
+    if (v > 0 && v <= 24) {
+      db.goal = v * 3600000;
+      save();
+      render();
+      syncPushSettings();
+    }
   }
 
   function onUrlChange() {
     db.url = document.getElementById('urlInput').value.trim();
     save();
     setSyncStatus(db.url ? 'URL salva' : 'sem URL configurada', '');
+  }
+
+  function onReminderTimeChange() {
+    const v = document.getElementById('reminderTimeInput').value;
+    if (/^\d{2}:\d{2}$/.test(v)) {
+      db.startReminderTime = v;
+      save();
+      syncPushSettings();
+    }
+  }
+
+  // ── Push notifications ─────────────────────────────────
+  async function toggleNotifications() {
+    if (db.notifyEnabled) {
+      db.notifyEnabled = false;
+      save();
+      render();
+      setNotifyStatus('notificações desativadas', '');
+      syncPushSettings(); // avisa o Worker para parar de enviar
+      return;
+    }
+    await enableNotifications();
+  }
+
+  async function enableNotifications() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setNotifyStatus('Push não suportado neste navegador', 'err');
+      return;
+    }
+    if (!WORKER_URL || WORKER_URL.includes('PASTE')) {
+      setNotifyStatus('Configure WORKER_URL no código primeiro', 'err');
+      return;
+    }
+    setNotifyStatus('Solicitando permissão…', '');
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { setNotifyStatus('Permissão negada', 'err'); return; }
+
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+      }
+      db.notifyEnabled = true;
+      save();
+      await postRegister(sub);
+      setNotifyStatus('Notificações ativadas ✓', 'ok');
+      render();
+    } catch (e) {
+      setNotifyStatus('Erro ao ativar notificações', 'err');
+    }
+  }
+
+  async function syncPushSettings() {
+    if (!WORKER_URL) return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) { db.notifyEnabled = false; save(); render(); return; }
+      await postRegister(sub);
+    } catch (_) {}
+  }
+
+  async function postRegister(subscription) {
+    await fetch(WORKER_URL + '/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Auth-Token': PUSH_AUTH_TOKEN },
+      body: JSON.stringify({
+        subscription,
+        goalMs:            db.goal,
+        startReminderTime: db.startReminderTime,
+        timezone:          Intl.DateTimeFormat().resolvedOptions().timeZone,
+        notifyEnabled:     db.notifyEnabled,
+      }),
+    });
+  }
+
+  function postState(isRunning, sessionStartMs, todayMs) {
+    if (!WORKER_URL || !db.notifyEnabled) return;
+    fetch(WORKER_URL + '/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Auth-Token': PUSH_AUTH_TOKEN },
+      body: JSON.stringify({ isRunning, sessionStartMs, todayMs }),
+    }).catch(() => {});
+  }
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+  }
+
+  function setNotifyStatus(msg, cls) {
+    const el = document.getElementById('notifyStatus');
+    el.textContent = msg;
+    el.className   = 'sync-status ' + cls;
   }
 
   // ── Sync ──────────────────────────────────────────────

@@ -15,6 +15,7 @@
    - Persistência local em `localStorage` — funciona sem internet
    - Sincronização opcional com Google Sheets via Apps Script
    - Instalável como app (PWA) — funciona offline e abre em tela cheia
+   - Notificações push opcionais (meta diária batida / lembrete de iniciar o dia), mesmo com o app fechado
 
    ---
 
@@ -68,6 +69,69 @@
 
    ---
 
+   ## Setup do Cloudflare Worker (notificações push, opcional)
+
+   Se você quiser receber notificações push — meta diária batida e lembrete de "ainda não iniciou hoje" — mesmo com o app fechado, siga os passos abaixo para publicar o Worker que envia essas notificações.
+
+   ### 1. Crie uma conta na Cloudflare
+
+   Crie uma conta gratuita em [dash.cloudflare.com/sign-up](https://dash.cloudflare.com/sign-up) (o plano free cobre este uso tranquilamente).
+
+   ### 2. Instale as dependências e faça login
+
+   ```bash
+   cd worker
+   npm install
+   npx wrangler login
+   ```
+
+   ### 3. Crie o KV namespace
+
+   ```bash
+   npx wrangler kv namespace create PUSH_KV
+   ```
+
+   Copie o `id` impresso e cole em `worker/wrangler.toml`, no campo `kv_namespaces[0].id`.
+
+   ### 4. Gere as chaves VAPID
+
+   ```bash
+   npx web-push generate-vapid-keys
+   ```
+
+   Cole a **Public Key** em `worker/wrangler.toml`, no campo `[vars] VAPID_PUBLIC_KEY`.
+   Guarde a **Private Key** para o próximo passo — não a cole em nenhum arquivo do repositório.
+
+   ### 5. Configure os secrets
+
+   ```bash
+   npx wrangler secret put VAPID_PRIVATE_KEY
+   npx wrangler secret put SHARED_SECRET
+   ```
+
+   O `SHARED_SECRET` pode ser qualquer string aleatória longa (ex.: saída de `openssl rand -hex 24`). Ela serve só para impedir que estranhos poluam o KV — não é segurança real, já que o mesmo valor fica visível no código-fonte público do app (constante `PUSH_AUTH_TOKEN`).
+
+   ### 6. Deploy
+
+   ```bash
+   npx wrangler deploy
+   ```
+
+   Copie a URL impressa (algo como `https://time-tracker-push.SEU-SUBDOMINIO.workers.dev`).
+
+   ### 7. Configure o app
+
+   1. Abra `index.html` e preencha as constantes `VAPID_PUBLIC_KEY`, `WORKER_URL` e `PUSH_AUTH_TOKEN` com os valores gerados acima
+   2. Publique a alteração (commit + push, já que o site é servido pelo GitHub Pages)
+   3. Abra o app, vá em **Configurações** e toque em **Ativar notificações**
+
+   ### Requisitos no iPhone
+
+   - **iOS 16.4 ou superior**
+   - O app precisa estar **instalado na Tela de Início** (ver seção "Instalar como app no iPhone" acima) — Web Push **não funciona** numa aba comum do Safari, só no PWA instalado
+
+   ---
+
    ## Estrutura da planilha
 
    O script cria uma aba chamada **Registros** com uma linha **por sessão** (não por dia):
@@ -100,8 +164,9 @@
    time-tracker/
    ├── index.html       ← app completo (HTML + CSS + JS em um único arquivo)
    ├── manifest.json    ← manifesto do PWA (nome, ícones, cores)
-   ├── sw.js            ← service worker (cache offline)
+   ├── sw.js            ← service worker (cache offline + notificações push)
    ├── icons/           ← ícones do app (Tela de Início, favicon)
+   ├── worker/          ← Cloudflare Worker que envia as notificações push
    ├── apps-script.gs   ← código para o Google Apps Script
    └── README.md        ← este arquivo
    ```

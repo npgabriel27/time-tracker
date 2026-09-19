@@ -1,0 +1,15 @@
+name = "time-tracker-push"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+kv_namespaces = [
+  { binding = "PUSH_KV", id = "b3e2a1a6356247479681bc8aee821727" }
+]
+
+[triggers]
+crons = ["*/15 * * * *"]
+
+[vars]
+VAPID_PUBLIC_KEY = "BDzLdoQ-sSlYrtgMsLFqCQt0fdlpH021ACMLciZZRBkMx4nhhJLcVJmFxb2mT47X5KbFCgl6gwWar7Rga5mVx3E"
+VAPID_SUBJECT = "mailto:np.gabriel@gmail.com"
