@@ -385,6 +385,83 @@
 
   .sync-status.ok  { color: var(--pos); }
   .sync-status.err { color: var(--neg); }
+
+  /* Report */
+  .report-list {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--text2);
+    line-height: 1.9;
+  }
+  .report-list b { color: var(--text1); }
+  .report-flag { color: var(--neg); }
+  .report-subhd {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text3);
+    font-weight: 600;
+    margin: 12px 0 4px;
+  }
+
+  /* Editor (correção manual) */
+  .editor-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 0;
+    border-top: 1px solid var(--border);
+    font-size: 0.8rem;
+    flex-wrap: wrap;
+  }
+  .editor-row:first-child { border-top: none; }
+
+  .editor-row-label {
+    flex: 0 0 56px;
+    font-weight: 600;
+    color: var(--text2);
+  }
+
+  .editor-tag {
+    font-size: 0.6rem;
+    color: var(--text3);
+    flex-basis: 100%;
+  }
+
+  .editor-row input[type="time"],
+  .editor-row select,
+  .editor-add-row input[type="time"],
+  .editor-add-row select {
+    background: var(--surf2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 8px;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--text1);
+  }
+
+  .editor-row-actions {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+  }
+
+  .icon-btn {
+    all: unset;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 4px 6px;
+    line-height: 1;
+  }
+
+  .editor-add-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
   </style>
 </head>
 <body>
@@ -458,6 +535,45 @@
       <div id="histWrap"></div>
     </div>
 
+    <!-- Report -->
+    <div>
+      <button class="settings-toggle" onclick="toggleReport()">
+        <i class="chevron" id="chevronReport">›</i>
+        Relatório mensal
+      </button>
+      <div class="settings-panel" id="reportPanel">
+        <div class="field">
+          <label>Mês</label>
+          <input type="month" id="reportMonthInput" onchange="onReportMonthChange()">
+        </div>
+        <div id="reportBody"></div>
+      </div>
+    </div>
+
+    <!-- Editor (correção manual) -->
+    <div>
+      <button class="settings-toggle" onclick="toggleEditor()">
+        <i class="chevron" id="chevronEdit">›</i>
+        Corrigir registros
+      </button>
+      <div class="settings-panel" id="editorPanel">
+        <div class="field">
+          <label>Dia</label>
+          <input type="date" id="editorDateInput" onchange="onEditorDateChange()">
+        </div>
+        <div id="editorList"></div>
+        <div class="editor-add-row">
+          <input type="time" id="editorNewTime" value="08:00">
+          <select id="editorNewTipo">
+            <option value="entrada">Entrada</option>
+            <option value="saida">Saída</option>
+          </select>
+          <button class="btn btn-ghost" onclick="onEditorAdd()" style="padding: 8px 14px; font-size:0.8rem;">+ Adicionar batida</button>
+        </div>
+        <div class="msg" id="editorMsg" hidden></div>
+      </div>
+    </div>
+
     <!-- Settings -->
     <div>
       <button class="settings-toggle" onclick="toggleSettings()">
@@ -510,7 +626,7 @@
   const WORKER_URL       = 'https://time-tracker-push.np-gabriel.workers.dev';
   const PUSH_AUTH_TOKEN  = '99e38234cabe8fbebc1af93213ad16c503c16bbda9d387cd'; // só evita spam no KV, não é segurança real
 
-  const FETCH_DAYS = 45; // janela de histórico consultada na planilha
+  const FETCH_DAYS = 400; // janela de histórico consultada na planilha (cobre relatórios de meses passados)
 
   let db = {       // persisted (localStorage)
     goal:  8 * 3600000,
@@ -551,6 +667,12 @@
   }
 
   function isoToday() { return localIsoDate(new Date()); }
+
+  function combineDateTime(dateStr, timeStr) {
+    const [y, mo, d] = dateStr.split('-').map(Number);
+    const [h, mi] = timeStr.split(':').map(Number);
+    return new Date(y, mo - 1, d, h, mi, 0, 0);
+  }
 
   function weekDates() {
     const now = new Date();
@@ -679,7 +801,8 @@
     return json.records;
   }
 
-  async function postPunch(payload) {
+  // payload sempre leva um 'action' ('punch' | 'update' | 'delete') — ver apps-script.gs
+  async function postAction(payload) {
     const res = await fetch(db.url, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // evita preflight CORS no Apps Script
@@ -704,13 +827,15 @@
       setSyncStatus('Erro ao atualizar (offline?)', 'err');
     }
     render();
+    renderEditor();     // no-op se o painel estiver fechado
+    renderReportBody(); // idem
   }
 
   async function flushOutbox() {
     if (!db.url || !navigator.onLine || db.outbox.length === 0) return;
     for (const payload of [...db.outbox]) {
       try {
-        await postPunch(payload);
+        await postAction(payload);
         db.outbox = db.outbox.filter(p => p.id !== payload.id);
         save();
       } catch (_) {
@@ -754,10 +879,12 @@
     if (st.phase !== 'confirm') return;
     const horario = new Date();
     const payload = {
+      action: 'punch',
       id: genId(),
       tipo: st.selectedTipo,
       horario: horario.toISOString(),
       competencia: localIsoDate(horario),
+      origem: 'ponto',
     };
 
     st.phase = 'sending';
@@ -768,7 +895,7 @@
 
     let ok = true;
     try {
-      await postPunch(payload);
+      await postAction(payload);
       db.outbox = db.outbox.filter(p => p.id !== payload.id);
       save();
     } catch (e) {
@@ -1012,6 +1139,289 @@
       <thead><tr><th>Dia</th><th>Total</th><th>Desvio</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
+  }
+
+  // ── Corrigir registros ──────────────────────────────────
+  // Edição direta na planilha: corrige horário/tipo de uma batida, apaga uma
+  // errada, ou lança uma batida esquecida com horário retroativo. Não passa
+  // pelo outbox — se falhar por falta de rede, o usuário tenta de novo.
+  function toggleEditor(forceOpen) {
+    const panel   = document.getElementById('editorPanel');
+    const chevron = document.getElementById('chevronEdit');
+    const isOpen  = forceOpen ? (panel.classList.add('open'), true) : panel.classList.toggle('open');
+    chevron.classList.toggle('open', isOpen);
+    if (isOpen) {
+      const input = document.getElementById('editorDateInput');
+      if (!input.value) input.value = isoToday();
+      renderEditor();
+    }
+  }
+
+  function onEditorDateChange() {
+    renderEditor();
+  }
+
+  function renderEditor() {
+    const panel = document.getElementById('editorPanel');
+    if (!panel.classList.contains('open')) return;
+
+    const dateStr = document.getElementById('editorDateInput').value || isoToday();
+    const records = mergedRecords()
+      .filter(r => r.competencia === dateStr)
+      .sort((a, b) => new Date(a.horario) - new Date(b.horario));
+
+    const el = document.getElementById('editorList');
+    el.innerHTML = records.length === 0
+      ? '<div class="hist-empty">Nenhuma batida neste dia</div>'
+      : records.map(editorRowHtml).join('');
+  }
+
+  function editorRowHtml(r) {
+    const t = new Date(r.horario);
+    const label = r.tipo === 'entrada' ? 'Entrada' : 'Saída';
+    const tag = r.origem && r.origem !== 'ponto' ? `<span class="editor-tag">(${r.origem})</span>` : '';
+    return `<div class="editor-row" data-id="${r.id}">
+      <span class="editor-row-label">${label}</span>
+      <input type="time" class="editor-time" value="${pad(t.getHours())}:${pad(t.getMinutes())}">
+      <select class="editor-tipo">
+        <option value="entrada" ${r.tipo === 'entrada' ? 'selected' : ''}>Entrada</option>
+        <option value="saida" ${r.tipo === 'saida' ? 'selected' : ''}>Saída</option>
+      </select>
+      <div class="editor-row-actions">
+        <button class="icon-btn" title="Salvar" onclick="onEditorSave('${r.id}')">💾</button>
+        <button class="icon-btn" title="Excluir" onclick="onEditorDelete('${r.id}')">🗑</button>
+      </div>
+      ${tag}
+    </div>`;
+  }
+
+  async function onEditorSave(id) {
+    const row = document.querySelector(`.editor-row[data-id="${id}"]`);
+    const dateStr = document.getElementById('editorDateInput').value;
+    const time = row.querySelector('.editor-time').value;
+    const tipo = row.querySelector('.editor-tipo').value;
+    if (!time) { showEditorMsg('Preencha o horário', 'err'); return; }
+
+    const horario = combineDateTime(dateStr, time);
+    try {
+      await postAction({ action: 'update', id, tipo, horario: horario.toISOString(), competencia: dateStr });
+      showEditorMsg('Registro atualizado ✓', 'ok');
+      await refreshRecords();
+    } catch (e) {
+      showEditorMsg('Erro ao salvar — tente de novo', 'err');
+    }
+  }
+
+  async function onEditorDelete(id) {
+    if (!confirm('Excluir esta batida da planilha?')) return;
+    try {
+      await postAction({ action: 'delete', id });
+      showEditorMsg('Registro excluído ✓', 'ok');
+      await refreshRecords();
+    } catch (e) {
+      showEditorMsg('Erro ao excluir — tente de novo', 'err');
+    }
+  }
+
+  async function onEditorAdd() {
+    const dateStr = document.getElementById('editorDateInput').value || isoToday();
+    const time = document.getElementById('editorNewTime').value;
+    const tipo = document.getElementById('editorNewTipo').value;
+    if (!time) { showEditorMsg('Preencha o horário', 'err'); return; }
+
+    const horario = combineDateTime(dateStr, time);
+    const payload = {
+      action: 'punch', id: genId(), tipo,
+      horario: horario.toISOString(), competencia: dateStr, origem: 'manual',
+    };
+    try {
+      await postAction(payload);
+      showEditorMsg('Batida adicionada ✓', 'ok');
+      await refreshRecords();
+    } catch (e) {
+      showEditorMsg('Erro ao adicionar — tente de novo', 'err');
+    }
+  }
+
+  function showEditorMsg(text, cls) {
+    const el = document.getElementById('editorMsg');
+    el.textContent = text;
+    el.className = 'msg ' + cls;
+    el.hidden = false;
+    setTimeout(() => { el.hidden = true; }, 5000);
+  }
+
+  // ── Relatório mensal ──────────────────────────────────
+  function toggleReport(forceOpen) {
+    const panel   = document.getElementById('reportPanel');
+    const chevron = document.getElementById('chevronReport');
+    const isOpen  = forceOpen ? (panel.classList.add('open'), true) : panel.classList.toggle('open');
+    chevron.classList.toggle('open', isOpen);
+    if (isOpen) {
+      const input = document.getElementById('reportMonthInput');
+      if (!input.value) input.value = isoToday().slice(0, 7);
+      renderReportBody();
+    }
+  }
+
+  function onReportMonthChange() {
+    renderReportBody();
+  }
+
+  function monthDates(monthStr) {
+    const [y, m] = monthStr.split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, i) => `${monthStr}-${pad(i + 1)}`);
+  }
+
+  function buildReport(monthStr, allRecords) {
+    const inMonth = allRecords.filter(r => r.competencia.startsWith(monthStr));
+    const byDay = {};
+    for (const r of inMonth) (byDay[r.competencia] ||= []).push(r);
+
+    const totals = {}, firstEntrada = {}, lastSaida = {}, lunchMs = {};
+    const incomplete = [];
+
+    for (const day in byDay) {
+      const sorted = byDay[day].sort((a, b) => new Date(a.horario) - new Date(b.horario));
+      const { ms, open } = pairSums(sorted);
+      totals[day] = ms;
+      if (open) incomplete.push(day);
+
+      const entradas = sorted.filter(r => r.tipo === 'entrada');
+      const saidas   = sorted.filter(r => r.tipo === 'saida');
+      if (entradas.length) firstEntrada[day] = new Date(entradas[0].horario);
+      if (saidas.length)   lastSaida[day]    = new Date(saidas[saidas.length - 1].horario);
+
+      for (let i = 0; i < sorted.length - 1; i++) {
+        if (sorted[i].tipo === 'saida' && sorted[i + 1].tipo === 'entrada') {
+          lunchMs[day] = new Date(sorted[i + 1].horario) - new Date(sorted[i].horario);
+          break;
+        }
+      }
+    }
+
+    const workedDays = Object.keys(totals).sort();
+    const totalMs = workedDays.reduce((sum, d) => sum + totals[d], 0);
+    const goalMetDays = workedDays.filter(d => totals[d] >= db.goal).length;
+
+    const avgMinutes = (dates) => {
+      const vals = dates.map(d => d.getHours() * 60 + d.getMinutes());
+      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    };
+    const avgEntradaMin = avgMinutes(Object.values(firstEntrada));
+    const avgSaidaMin   = avgMinutes(Object.values(lastSaida));
+
+    const lunchVals = Object.values(lunchMs);
+    const avgLunchMs = lunchVals.length ? lunchVals.reduce((a, b) => a + b, 0) / lunchVals.length : null;
+
+    let bestDay = null, worstDay = null;
+    for (const d of workedDays) {
+      const delta = totals[d] - db.goal;
+      if (!bestDay || delta > bestDay.delta) bestDay = { date: d, delta };
+      if (!worstDay || delta < worstDay.delta) worstDay = { date: d, delta };
+    }
+
+    // Descanso entre jornadas: compara saída de um dia-com-registro com a
+    // entrada do próximo dia-com-registro (histórico completo, não só o mês).
+    const allDaysWithRecords = [...new Set(allRecords.map(r => r.competencia))].sort();
+    const lowRestDays = [];
+    for (let i = 1; i < allDaysWithRecords.length; i++) {
+      const prevDay = allDaysWithRecords[i - 1], curDay = allDaysWithRecords[i];
+      if (!curDay.startsWith(monthStr)) continue;
+      const prevRecords = allRecords.filter(r => r.competencia === prevDay).sort((a, b) => new Date(a.horario) - new Date(b.horario));
+      const curRecords  = allRecords.filter(r => r.competencia === curDay).sort((a, b) => new Date(a.horario) - new Date(b.horario));
+      const prevLastSaida = [...prevRecords].reverse().find(r => r.tipo === 'saida');
+      const curFirstEntrada = curRecords.find(r => r.tipo === 'entrada');
+      if (!prevLastSaida || !curFirstEntrada) continue;
+      const restMs = new Date(curFirstEntrada.horario) - new Date(prevLastSaida.horario);
+      if (restMs < 11 * 3600000) lowRestDays.push(curDay);
+    }
+
+    // Banco acumulado: todo o histórico carregado (até FETCH_DAYS dias atrás), não só o mês.
+    const allTotals = dayTotals(allRecords);
+    const accumBalance = Object.values(allTotals).filter(ms => ms > 0).reduce((sum, ms) => sum + (ms - db.goal), 0);
+
+    // Saldo médio por dia da semana
+    const weekdayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const weekdayDeltas = Array.from({ length: 7 }, () => []);
+    for (const d of workedDays) {
+      const [y, mo, dd] = d.split('-').map(Number);
+      const dow = new Date(y, mo - 1, dd).getDay();
+      weekdayDeltas[dow].push(totals[d] - db.goal);
+    }
+    const weekdayAvg = weekdayDeltas.map((arr, i) => ({
+      name: weekdayNames[i],
+      avg: arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null,
+    }));
+
+    return {
+      workedDays, totalMs, goalMetDays,
+      avgEntradaMin, avgSaidaMin, avgLunchMs,
+      bestDay, worstDay, incomplete, lowRestDays, accumBalance, weekdayAvg,
+    };
+  }
+
+  function fmtMinutesOfDay(min) {
+    if (min == null) return '—';
+    const h = Math.floor(min / 60), m = Math.round(min % 60);
+    return `${pad(h)}:${pad(m)}`;
+  }
+
+  function renderReportBody() {
+    const panel = document.getElementById('reportPanel');
+    if (!panel.classList.contains('open')) return;
+
+    const monthStr = document.getElementById('reportMonthInput').value || isoToday().slice(0, 7);
+    const r = buildReport(monthStr, mergedRecords());
+    const el = document.getElementById('reportBody');
+
+    if (r.workedDays.length === 0) {
+      el.innerHTML = '<div class="hist-empty">Nenhum registro neste mês</div>';
+      return;
+    }
+
+    const monthBalance = r.totalMs - r.workedDays.length * db.goal;
+    const lines = [];
+
+    lines.push(`Entrada média: <b>${fmtMinutesOfDay(r.avgEntradaMin)}</b> · Saída média: <b>${fmtMinutesOfDay(r.avgSaidaMin)}</b>`);
+    lines.push(`Almoço médio: <b>${r.avgLunchMs != null ? fmtHm(r.avgLunchMs) : '—'}</b>`);
+    if (r.bestDay && r.worstDay) {
+      const fmtDelta = (delta) => `<span class="${delta >= 0 ? 'd-pos' : 'd-neg'}">${delta >= 0 ? '+' : ''}${fmtHm(delta)}</span>`;
+      lines.push(`Melhor dia: <b>${fmtDate(r.bestDay.date)}</b> (${fmtDelta(r.bestDay.delta)}) · Pior dia: <b>${fmtDate(r.worstDay.date)}</b> (${fmtDelta(r.worstDay.delta)})`);
+    }
+    lines.push(`Banco acumulado (histórico carregado): <span class="${r.accumBalance >= 0 ? 'd-pos' : 'd-neg'}">${r.accumBalance >= 0 ? '+' : ''}${fmtHm(r.accumBalance)}</span>`);
+
+    if (r.incomplete.length > 0) {
+      lines.push(`<span class="report-flag">⚠️ Dias com registro incompleto: ${r.incomplete.map(fmtDate).join(', ')}</span>`);
+    }
+    if (r.lowRestDays.length > 0) {
+      lines.push(`<span class="report-flag">⚠️ Descanso &lt;11h antes de: ${r.lowRestDays.map(fmtDate).join(', ')}</span>`);
+    }
+
+    const weekdayLines = r.weekdayAvg
+      .filter(w => w.avg != null)
+      .map(w => `${w.name}: <span class="${w.avg >= 0 ? 'd-pos' : 'd-neg'}">${w.avg >= 0 ? '+' : ''}${fmtHm(w.avg)}</span>`)
+      .join(' · ');
+
+    el.innerHTML = `
+      <div class="stats" style="margin-bottom: 10px;">
+        <div class="stat">
+          <div class="stat-lbl">Total do mês</div>
+          <div class="stat-val">${fmtHm(r.totalMs)}</div>
+          <div class="stat-sub">Meta: ${fmtHm(r.workedDays.length * db.goal)}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-lbl">Saldo do mês</div>
+          <div class="stat-val ${monthBalance >= 0 ? 'pos' : 'neg'}">${monthBalance >= 0 ? '+' : ''}${fmtHm(monthBalance)}</div>
+          <div class="stat-sub">${r.goalMetDays}/${r.workedDays.length} dias bateram a meta</div>
+        </div>
+      </div>
+      <div class="report-list">
+        ${lines.map(l => `<div>${l}</div>`).join('')}
+        ${weekdayLines ? `<div class="report-subhd">Saldo médio por dia da semana</div><div>${weekdayLines}</div>` : ''}
+      </div>
+    `;
   }
 
   // ── Settings ──────────────────────────────────────────
