@@ -189,17 +189,25 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+    flex-wrap: wrap;
   }
 
   .link-btn {
     all: unset;
     cursor: pointer;
-    font-size: 0.68rem;
+    font-size: 0.78rem;
     font-weight: 600;
-    color: var(--text3);
+    color: var(--text2);
     font-family: var(--sans);
+    background: var(--surf2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 16px;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
   }
-  .link-btn:hover { color: var(--text2); }
+  .link-btn:hover { color: var(--text1); border-color: var(--accent); }
 
   .refresh-info {
     font-size: 0.66rem;
@@ -515,7 +523,7 @@
       <div class="stat">
         <div class="stat-lbl">Banco de horas</div>
         <div class="stat-val" id="sBank">—</div>
-        <div class="stat-sub" id="sBankSub">vs meta diária</div>
+        <div class="stat-sub" id="sBankSub">dias fechados</div>
       </div>
       <div class="stat">
         <div class="stat-lbl">Semana</div>
@@ -1075,21 +1083,25 @@
     subEl.innerHTML = sub.map(l => `<div>${l}</div>`).join('');
   }
 
+  // Banco de horas, semana e média só consideram dias já fechados (sem 'hoje')
+  // — enquanto o dia está em andamento, o total é sempre menor que a meta,
+  // e isso fazia esses cards parecerem "devedores" o dia inteiro à toa.
   function updateStats() {
     const t = isoToday();
     const status = computeStatus(mergedRecords());
     const todayMs = liveTodayMs(status);
     const totals = dayTotals(mergedRecords());
-    const bank = todayMs - db.goal;
 
     document.getElementById('sToday').textContent = fmtHm(todayMs);
     document.getElementById('sMeta').textContent  = `Meta: ${fmtHm(db.goal)}`;
 
     const bankEl = document.getElementById('sBank');
-    if (todayMs === 0) {
+    const closedDays = Object.keys(totals).filter(d => d !== t && totals[d] > 0);
+    if (closedDays.length === 0) {
       bankEl.textContent = '—';
       bankEl.className   = 'stat-val';
     } else {
+      const bank = closedDays.reduce((sum, d) => sum + (totals[d] - db.goal), 0);
       bankEl.textContent = (bank >= 0 ? '+' : '') + fmtHm(bank);
       bankEl.className   = 'stat-val ' + (bank >= 0 ? 'pos' : 'neg');
     }
@@ -1097,7 +1109,8 @@
     const wDates = weekDates();
     let wMs = 0, wDays = 0;
     wDates.forEach(d => {
-      const ms = d === t ? todayMs : (totals[d] || 0);
+      if (d === t) return;
+      const ms = totals[d] || 0;
       if (ms > 0) { wMs += ms; wDays++; }
     });
     document.getElementById('sWeek').textContent    = fmtHm(wMs);
@@ -1106,7 +1119,8 @@
     const l7 = last7();
     let l7Ms = 0, l7Days = 0;
     l7.forEach(d => {
-      const ms = d === t ? todayMs : (totals[d] || 0);
+      if (d === t) return;
+      const ms = totals[d] || 0;
       if (ms > 0) { l7Ms += ms; l7Days++; }
     });
     document.getElementById('sAvg').textContent = fmtHm(l7Days > 0 ? l7Ms / l7Days : 0);
@@ -1274,7 +1288,11 @@
     return Array.from({ length: daysInMonth }, (_, i) => `${monthStr}-${pad(i + 1)}`);
   }
 
-  function buildReport(monthStr, allRecords) {
+  // O dia atual nunca entra nas análises — ele está em andamento, então
+  // sempre pareceria "abaixo da meta" só por ainda não ter terminado.
+  function buildReport(monthStr, allRecordsRaw) {
+    const today = isoToday();
+    const allRecords = allRecordsRaw.filter(r => r.competencia !== today);
     const inMonth = allRecords.filter(r => r.competencia.startsWith(monthStr));
     const byDay = {};
     for (const r of inMonth) (byDay[r.competencia] ||= []).push(r);
