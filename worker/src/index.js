@@ -52,11 +52,12 @@ export default {
     }
 
     if (url.pathname === '/state') {
-      const { isRunning, sessionStartMs, todayMs } = body;
+      const { isRunning, sessionStartMs, todayMs, sessionBelongsToday } = body;
       await env.PUSH_KV.put('state', JSON.stringify({
         isRunning: !!isRunning,
         sessionStartMs: sessionStartMs ?? null,
         todayMs: todayMs ?? 0,
+        sessionBelongsToday: sessionBelongsToday !== false,
         updatedAt: Date.now(),
       }));
       return json({ ok: true });
@@ -101,7 +102,10 @@ async function handleScheduled(env) {
     flags = { date: todayLocal, goalNotified: false, startNotified: false };
   }
 
-  const currentTodayMs = (state.isRunning && state.sessionStartMs)
+  // Sessão em aberto só entra no total de hoje se tiver começado hoje —
+  // um turno de madrugada ainda aberto pertence ao dia anterior até a saída
+  // ser batida, então não deve contar (nem disparar a meta) no dia novo.
+  const currentTodayMs = (state.isRunning && state.sessionStartMs && state.sessionBelongsToday !== false)
     ? state.todayMs + (Date.now() - state.sessionStartMs)
     : state.todayMs;
 

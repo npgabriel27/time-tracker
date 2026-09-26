@@ -726,10 +726,11 @@
 
   // ── Status: deriva o estado atual a partir das batidas ─────────────
   // Regras:
-  //  - último registro = "entrada"           → trabalhando agora
-  //  - último = "saída" no mesmo dia         → intervalo/almoço em andamento
-  //  - último = "saída" em dia anterior      → interjornada (descanso entre dias)
-  //  - último = "entrada" em dia anterior    → esqueceu de bater saída (anomalia)
+  //  - último registro = "entrada"      → trabalhando agora (mesmo que tenha
+  //    cruzado a meia-noite — turnos de madrugada não geram mais alerta;
+  //    a saída, quando batida, será atribuída ao dia dessa entrada)
+  //  - último = "saída" no mesmo dia    → intervalo/almoço em andamento
+  //  - último = "saída" em dia anterior → interjornada (descanso entre dias)
   function pairSums(dayRecordsSorted) {
     let ms = 0;
     let open = null;
@@ -749,22 +750,27 @@
     const today = isoToday();
     const todayRecords = sorted.filter(r => r.competencia === today);
     const last = sorted[sorted.length - 1] || null;
-    const { ms: workedTodayMs, open } = pairSums(todayRecords);
+    const workedTodayMs = pairSums(todayRecords).ms; // só pares já fechados hoje
     const now = Date.now();
 
     if (!last) {
       return { kind: 'empty', defaultTipo: 'entrada', workedTodayMs: 0, todayRecords };
     }
 
-    if (open) {
-      const elapsedMs = now - new Date(open.horario).getTime();
+    if (last.tipo === 'entrada') {
+      // Sessão em aberto. Se a entrada já pertence a hoje, soma ao total do
+      // dia; se veio de um dia anterior (madrugada), "hoje" fica em 0 até a
+      // saída ser batida (ela será contabilizada no dia da entrada).
+      const elapsedMs = now - new Date(last.horario).getTime();
+      const sessionBelongsToday = last.competencia === today;
+      const liveTotalMs = workedTodayMs + (sessionBelongsToday ? elapsedMs : 0);
       return {
-        kind: 'working', defaultTipo: 'saida', last: open,
-        elapsedMs, workedTodayMs, liveTotalMs: workedTodayMs + elapsedMs, todayRecords,
+        kind: 'working', defaultTipo: 'saida', last,
+        elapsedMs, workedTodayMs, liveTotalMs, sessionBelongsToday, todayRecords,
       };
     }
 
-    if (last.tipo === 'saida' && last.competencia === today) {
+    if (last.competencia === today) {
       return {
         kind: 'break', defaultTipo: 'entrada', last,
         elapsedMs: now - new Date(last.horario).getTime(), workedTodayMs, todayRecords,
@@ -773,8 +779,7 @@
 
     const elapsedMs = now - new Date(last.horario).getTime();
     return {
-      kind: last.tipo === 'entrada' ? 'missing-checkout' : 'rest',
-      defaultTipo: last.tipo === 'entrada' ? 'saida' : 'entrada',
+      kind: 'rest', defaultTipo: 'entrada',
       last, elapsedMs, workedTodayMs, todayRecords,
     };
   }
@@ -886,12 +891,16 @@
   async function onConfirmClick() {
     if (st.phase !== 'confirm') return;
     const horario = new Date();
+    // Saída fechando uma sessão em aberto (ex.: virada de madrugada) conta
+    // para o dia da entrada, não para o dia-calendário em que ela ocorreu.
+    const isOvernightCheckout = st.selectedTipo === 'saida' && st.status && st.status.kind === 'working';
+    const competencia = isOvernightCheckout ? st.status.last.competencia : localIsoDate(horario);
     const payload = {
       action: 'punch',
       id: genId(),
       tipo: st.selectedTipo,
       horario: horario.toISOString(),
-      competencia: localIsoDate(horario),
+      competencia,
       origem: 'ponto',
     };
 
@@ -950,7 +959,15 @@
   function postWorkerState() {
     const status = computeStatus(mergedRecords());
     const isRunning = status.kind === 'working';
-    postState(isRunning, isRunning ? new Date(status.last.horario).getTime() : null, status.workedTodayMs);
+    // sessionBelongsToday=false diz ao Worker para não somar a sessão aberta
+    // ao total de hoje (turno de madrugada ainda pertence ao dia anterior),
+    // mas isRunning continua true para não disparar o lembrete de "não iniciou".
+    postState(
+      isRunning,
+      isRunning ? new Date(status.last.horario).getTime() : null,
+      status.workedTodayMs,
+      isRunning ? status.sessionBelongsToday : true,
+    );
   }
 
   // ── Render ────────────────────────────────────────────
@@ -1045,13 +1062,18 @@
       const startedAt = new Date(status.last.horario);
       mainEl.textContent = `Trabalhando desde ${fmtTime(startedAt)}`;
       sub.push(`Sessão atual: ${fmtHm(status.elapsedMs)}`);
-      sub.push(`Total hoje: ${fmtHm(status.liveTotalMs)}`);
-      const remaining = db.goal - status.liveTotalMs;
-      if (remaining > 0) {
-        const eta = new Date(Date.now() + remaining);
-        sub.push(`Faltam ${fmtHm(remaining)} p/ meta · previsão de saída: ${fmtTime(eta)}`);
+      if (status.sessionBelongsToday) {
+        sub.push(`Total hoje: ${fmtHm(status.liveTotalMs)}`);
+        const remaining = db.goal - status.liveTotalMs;
+        if (remaining > 0) {
+          const eta = new Date(Date.now() + remaining);
+          sub.push(`Faltam ${fmtHm(remaining)} p/ meta · previsão de saída: ${fmtTime(eta)}`);
+        } else {
+          sub.push(`<span class="d-pos">Meta batida! +${fmtHm(-remaining)} de banco</span>`);
+        }
       } else {
-        sub.push(`<span class="d-pos">Meta batida! +${fmtHm(-remaining)} de banco</span>`);
+        sub.push(`Total hoje: 0h 00m`);
+        sub.push(`Sessão iniciada ${fmtDate(status.last.competencia).toLowerCase()} — será somada à jornada daquele dia ao bater a saída.`);
       }
     } else if (status.kind === 'break') {
       const startedAt = new Date(status.last.horario);
@@ -1072,12 +1094,6 @@
       const restHours = status.elapsedMs / 3600000;
       const cls = restHours >= 11 ? 'd-pos' : 'd-neg';
       sub.push(`Descanso: <span class="${cls}">${fmtHm(status.elapsedMs)}</span>${restHours < 11 ? ' (mínimo legal: 11h)' : ''}`);
-    } else if (status.kind === 'missing-checkout') {
-      mainEl.classList.add('warn');
-      const startedAt = new Date(status.last.horario);
-      mainEl.textContent = `⚠️ Entrada sem saída`;
-      sub.push(`Última entrada: ${fmtDate(status.last.competencia).toLowerCase()} às ${fmtTime(startedAt)}`);
-      sub.push('Confira o histórico — parece que uma saída não foi registrada.');
     }
 
     subEl.innerHTML = sub.map(l => `<div>${l}</div>`).join('');
@@ -1546,12 +1562,12 @@
     });
   }
 
-  function postState(isRunning, sessionStartMs, todayMs) {
+  function postState(isRunning, sessionStartMs, todayMs, sessionBelongsToday) {
     if (!WORKER_URL || !db.notifyEnabled) return;
     fetch(WORKER_URL + '/state', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Auth-Token': PUSH_AUTH_TOKEN },
-      body: JSON.stringify({ isRunning, sessionStartMs, todayMs }),
+      body: JSON.stringify({ isRunning, sessionStartMs, todayMs, sessionBelongsToday }),
     }).catch(() => {});
   }
 
