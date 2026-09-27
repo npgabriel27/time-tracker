@@ -314,43 +314,51 @@
   .d-pos { color: var(--pos); }
   .d-neg { color: var(--neg); }
 
-  /* Settings */
-  .settings-toggle {
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+
+  .tab {
     all: unset;
     cursor: pointer;
-    font-size: 0.6rem;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--text3);
-    font-family: var(--sans);
+    flex: 0 0 auto;
+    padding: 11px 14px;
+    font-size: 0.76rem;
     font-weight: 600;
+    color: var(--text3);
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    min-height: 44px;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding-bottom: 0;
   }
+  .tab:hover { color: var(--text2); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-  .settings-toggle:hover { color: var(--text2); }
-
-  .chevron {
-    display: inline-block;
-    font-style: normal;
-    transition: transform 0.18s;
-    font-size: 0.75rem;
+  /* Views */
+  .view {
+    display: none;
+    flex-direction: column;
+    gap: 14px;
   }
-  .chevron.open { transform: rotate(90deg); }
+  .view.active { display: flex; }
 
-  .settings-panel {
+  .view-panel {
     background: var(--surf);
     border: 1px solid var(--border);
     border-radius: var(--r);
     padding: 18px 20px;
-    display: none;
+    display: flex;
     flex-direction: column;
     gap: 14px;
-    margin-top: 8px;
   }
-  .settings-panel.open { display: flex; }
 
   .field { display: flex; flex-direction: column; gap: 5px; }
 
@@ -395,21 +403,197 @@
   .sync-status.err { color: var(--neg); }
 
   /* Report */
-  .report-list {
-    font-family: var(--mono);
-    font-size: 0.78rem;
-    color: var(--text2);
-    line-height: 1.9;
-  }
-  .report-list b { color: var(--text1); }
-  .report-flag { color: var(--neg); }
   .report-subhd {
     font-size: 0.6rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--text3);
     font-weight: 600;
-    margin: 12px 0 4px;
+    margin: 14px 0 6px;
+  }
+
+  .stats-sm {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .stat-sm { padding: 10px 12px; }
+
+  .stat-val-sm {
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    color: var(--text1);
+  }
+
+  .badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+
+  .badge {
+    flex: 1 1 auto;
+    min-width: 120px;
+    background: var(--surf2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+  }
+
+  .badge-lbl {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text3);
+    font-weight: 600;
+    margin-bottom: 3px;
+  }
+
+  .badge-val {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--text2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .flags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+
+  .flag-chip {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(220, 38, 38, 0.1);
+    color: var(--neg);
+    cursor: default;
+  }
+
+  .weekbars {
+    display: flex;
+    justify-content: space-between;
+    gap: 5px;
+    margin-top: 6px;
+  }
+
+  .weekbar {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .weekbar-track {
+    width: 100%;
+    max-width: 22px;
+    height: 44px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .weekbar-top {
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .weekbar-bottom {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+  }
+
+  .weekbar-bar {
+    width: 100%;
+    border-radius: 2px;
+    min-height: 2px;
+  }
+
+  .weekbar-bar.pos { background: var(--pos); }
+  .weekbar-bar.neg { background: var(--neg); }
+
+  .weekbar-lbl {
+    font-size: 0.62rem;
+    color: var(--text3);
+    font-weight: 500;
+  }
+
+  /* Heatmap */
+  .hm-summary {
+    display: flex;
+    gap: 16px;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--text2);
+  }
+  .hm-summary b { color: var(--text1); }
+
+  .hm-dow {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .hm-dow span {
+    text-align: center;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text3);
+    font-weight: 600;
+  }
+
+  .hm-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+
+  .hm-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surf2);
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text2);
+    cursor: default;
+  }
+  .hm-cell.hm-empty { background: transparent; border-color: transparent; }
+  .hm-cell.hm-light { color: #fff; }
+  .hm-cell.hm-incomplete { box-shadow: inset 0 0 0 2px var(--warn); }
+
+  .hm-legend {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 0.68rem;
+    color: var(--text2);
+  }
+
+  .hm-swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 5px;
+    vertical-align: middle;
   }
 
   /* Editor (correção manual) */
@@ -482,74 +666,84 @@
       <span class="hd-date" id="dateBadge"></span>
     </header>
 
-    <!-- Punch card -->
-    <div class="punch-card">
-      <div class="punch-status">
-        <div class="punch-main" id="punchMain">Carregando…</div>
-        <div class="punch-sub" id="punchSub"></div>
+    <!-- Tabs -->
+    <nav class="tabs">
+      <button class="tab active" data-view="home" onclick="switchView('home')">Início</button>
+      <button class="tab" data-view="report" onclick="switchView('report')">Relatório</button>
+      <button class="tab" data-view="heatmap" onclick="switchView('heatmap')">Calendário</button>
+      <button class="tab" data-view="editor" onclick="switchView('editor')">Corrigir</button>
+      <button class="tab" data-view="settings" onclick="switchView('settings')">Ajustes</button>
+    </nav>
+
+    <!-- Home -->
+    <div class="view active" id="viewHome">
+
+      <!-- Punch card -->
+      <div class="punch-card">
+        <div class="punch-status">
+          <div class="punch-main" id="punchMain">Carregando…</div>
+          <div class="punch-sub" id="punchSub"></div>
+        </div>
+
+        <div class="radio-group" id="radioGroup" hidden>
+          <label class="radio-opt" id="optEntrada">
+            <input type="radio" name="tipo" value="entrada" onchange="onTipoChange('entrada')">
+            Entrada
+          </label>
+          <label class="radio-opt" id="optSaida">
+            <input type="radio" name="tipo" value="saida" onchange="onTipoChange('saida')">
+            Saída
+          </label>
+        </div>
+
+        <div class="controls">
+          <button class="btn btn-primary" id="btnPunch" onclick="onPunchClick()">Registrar Ponto</button>
+          <button class="btn btn-ghost" id="btnCancel" onclick="onCancelClick()" hidden>Cancelar</button>
+        </div>
+
+        <div class="msg" id="msgBox" hidden></div>
+
+        <div class="refresh-row">
+          <button class="link-btn" id="btnRefresh" onclick="onRefreshClick()">↻ Atualizar</button>
+          <span class="refresh-info" id="refreshInfo"></span>
+        </div>
       </div>
 
-      <div class="radio-group" id="radioGroup" hidden>
-        <label class="radio-opt" id="optEntrada">
-          <input type="radio" name="tipo" value="entrada" onchange="onTipoChange('entrada')">
-          Entrada
-        </label>
-        <label class="radio-opt" id="optSaida">
-          <input type="radio" name="tipo" value="saida" onchange="onTipoChange('saida')">
-          Saída
-        </label>
+      <!-- Stats -->
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-lbl">Hoje</div>
+          <div class="stat-val" id="sToday">0h 00m</div>
+          <div class="stat-sub" id="sMeta">Meta: 8h 00m</div>
+        </div>
+        <div class="stat">
+          <div class="stat-lbl">Banco de horas</div>
+          <div class="stat-val" id="sBank">—</div>
+          <div class="stat-sub" id="sBankSub">dias fechados</div>
+        </div>
+        <div class="stat">
+          <div class="stat-lbl">Semana</div>
+          <div class="stat-val" id="sWeek">0h 00m</div>
+          <div class="stat-sub" id="sWeekSub">0 dias</div>
+        </div>
+        <div class="stat">
+          <div class="stat-lbl">Média diária</div>
+          <div class="stat-val" id="sAvg">0h 00m</div>
+          <div class="stat-sub">últimos 7 dias</div>
+        </div>
       </div>
 
-      <div class="controls">
-        <button class="btn btn-primary" id="btnPunch" onclick="onPunchClick()">Registrar Ponto</button>
-        <button class="btn btn-ghost" id="btnCancel" onclick="onCancelClick()" hidden>Cancelar</button>
+      <!-- History -->
+      <div>
+        <div class="sec-hd">Histórico</div>
+        <div id="histWrap"></div>
       </div>
 
-      <div class="msg" id="msgBox" hidden></div>
-
-      <div class="refresh-row">
-        <button class="link-btn" id="btnRefresh" onclick="onRefreshClick()">↻ Atualizar</button>
-        <span class="refresh-info" id="refreshInfo"></span>
-      </div>
-    </div>
-
-    <!-- Stats -->
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-lbl">Hoje</div>
-        <div class="stat-val" id="sToday">0h 00m</div>
-        <div class="stat-sub" id="sMeta">Meta: 8h 00m</div>
-      </div>
-      <div class="stat">
-        <div class="stat-lbl">Banco de horas</div>
-        <div class="stat-val" id="sBank">—</div>
-        <div class="stat-sub" id="sBankSub">dias fechados</div>
-      </div>
-      <div class="stat">
-        <div class="stat-lbl">Semana</div>
-        <div class="stat-val" id="sWeek">0h 00m</div>
-        <div class="stat-sub" id="sWeekSub">0 dias</div>
-      </div>
-      <div class="stat">
-        <div class="stat-lbl">Média diária</div>
-        <div class="stat-val" id="sAvg">0h 00m</div>
-        <div class="stat-sub">últimos 7 dias</div>
-      </div>
-    </div>
-
-    <!-- History -->
-    <div>
-      <div class="sec-hd">Histórico</div>
-      <div id="histWrap"></div>
     </div>
 
     <!-- Report -->
-    <div>
-      <button class="settings-toggle" onclick="toggleReport()">
-        <i class="chevron" id="chevronReport">›</i>
-        Relatório mensal
-      </button>
-      <div class="settings-panel" id="reportPanel">
+    <div class="view" id="viewReport">
+      <div class="view-panel">
         <div class="field">
           <label>Mês</label>
           <input type="month" id="reportMonthInput" onchange="onReportMonthChange()">
@@ -558,13 +752,20 @@
       </div>
     </div>
 
+    <!-- Heatmap -->
+    <div class="view" id="viewHeatmap">
+      <div class="view-panel">
+        <div class="field">
+          <label>Mês</label>
+          <input type="month" id="heatmapMonthInput" onchange="onHeatmapMonthChange()">
+        </div>
+        <div id="heatmapBody"></div>
+      </div>
+    </div>
+
     <!-- Editor (correção manual) -->
-    <div>
-      <button class="settings-toggle" onclick="toggleEditor()">
-        <i class="chevron" id="chevronEdit">›</i>
-        Corrigir registros
-      </button>
-      <div class="settings-panel" id="editorPanel">
+    <div class="view" id="viewEditor">
+      <div class="view-panel">
         <div class="field">
           <label>Dia</label>
           <input type="date" id="editorDateInput" onchange="onEditorDateChange()">
@@ -576,23 +777,27 @@
             <option value="entrada">Entrada</option>
             <option value="saida">Saída</option>
           </select>
-          <button class="btn btn-ghost" onclick="onEditorAdd()" style="padding: 8px 14px; font-size:0.8rem;">+ Adicionar batida</button>
+          <button class="btn btn-ghost" id="btnEditorAdd" onclick="onEditorAdd()" style="padding: 8px 14px; font-size:0.8rem;">+ Adicionar batida</button>
         </div>
         <div class="msg" id="editorMsg" hidden></div>
       </div>
     </div>
 
     <!-- Settings -->
-    <div>
-      <button class="settings-toggle" onclick="toggleSettings()">
-        <i class="chevron" id="chevron">›</i>
-        Configurações
-      </button>
-      <div class="settings-panel" id="settingsPanel">
+    <div class="view" id="viewSettings">
+      <div class="view-panel">
         <div class="field">
           <label>Meta diária (horas)</label>
           <input type="number" id="goalInput" min="0.5" max="24" step="0.5"
                 value="8" onchange="onGoalChange()">
+        </div>
+        <div class="field">
+          <label>Saldo legado (banco de horas de antes do app)</label>
+          <div class="sync-row">
+            <input type="number" id="legacyInput" step="0.25" placeholder="ex: 12.5 ou -3" style="flex:1;">
+            <button class="btn btn-ghost" onclick="onLegacySave()" style="padding: 7px 14px; font-size:0.8rem;">Salvar</button>
+          </div>
+          <span class="sync-status" id="legacyStatus"></span>
         </div>
         <div class="field">
           <label>URL do Google Apps Script</label>
@@ -641,7 +846,7 @@
     url:   '',
     notifyEnabled:     false,
     startReminderTime: '09:15',
-    cache: { records: [], fetchedAt: 0 },
+    cache: { records: [], legacyBalanceMs: 0, fetchedAt: 0 },
     outbox: [],    // batidas ainda não confirmadas pela planilha (retry automático)
   };
 
@@ -651,6 +856,7 @@
     selectedTipo: 'entrada',
     tick: null,
     msgTimeout: null,
+    reportMonth: null, // mês compartilhado entre as abas Relatório e Calendário
   };
 
   function load() {
@@ -659,6 +865,7 @@
       if (raw) Object.assign(db, JSON.parse(raw));
     } catch (_) {}
     if (!db.cache) db.cache = { records: [], fetchedAt: 0 };
+    if (db.cache.legacyBalanceMs == null) db.cache.legacyBalanceMs = 0;
     if (!Array.isArray(db.outbox)) db.outbox = [];
   }
 
@@ -811,7 +1018,7 @@
     const res = await fetch(`${db.url}?days=${FETCH_DAYS}`);
     const json = await res.json();
     if (!json.ok) throw new Error(json.error || 'erro desconhecido');
-    return json.records;
+    return { records: json.records, legacyBalanceMs: json.legacyBalanceMs || 0 };
   }
 
   // payload sempre leva um 'action' ('punch' | 'update' | 'delete') — ver apps-script.gs
@@ -829,8 +1036,8 @@
   async function refreshRecords() {
     if (!db.url) return;
     try {
-      const records = await fetchRecords();
-      db.cache = { records, fetchedAt: Date.now() };
+      const { records, legacyBalanceMs } = await fetchRecords();
+      db.cache = { records, legacyBalanceMs, fetchedAt: Date.now() };
       // remove do outbox qualquer batida que já apareceu na planilha
       const ids = new Set(records.map(r => r.id));
       db.outbox = db.outbox.filter(p => !ids.has(p.id));
@@ -840,8 +1047,9 @@
       setSyncStatus('Erro ao atualizar (offline?)', 'err');
     }
     render();
-    renderEditor();     // no-op se o painel estiver fechado
+    renderEditor();     // no-op se a aba não estiver ativa
     renderReportBody(); // idem
+    renderHeatmap();    // idem
   }
 
   async function flushOutbox() {
@@ -864,7 +1072,7 @@
 
   // ── Fluxo de registro (2 cliques) ───────────────────────
   async function onPunchClick() {
-    if (!db.url) { toggleSettings(true); return; }
+    if (!db.url) { switchView('settings'); return; }
     if (st.phase !== 'idle') return;
 
     st.phase = 'loading';
@@ -979,6 +1187,7 @@
     renderHistory();
 
     document.getElementById('goalInput').value = db.goal / 3600000;
+    document.getElementById('legacyInput').value = (db.cache.legacyBalanceMs || 0) / 3600000;
     document.getElementById('urlInput').value  = db.url;
     document.getElementById('reminderTimeInput').value = db.startReminderTime;
     document.getElementById('btnNotify').textContent =
@@ -1112,12 +1321,13 @@
     document.getElementById('sMeta').textContent  = `Meta: ${fmtHm(db.goal)}`;
 
     const bankEl = document.getElementById('sBank');
+    const legacyMs = db.cache.legacyBalanceMs || 0;
     const closedDays = Object.keys(totals).filter(d => d !== t && totals[d] > 0);
-    if (closedDays.length === 0) {
+    if (closedDays.length === 0 && legacyMs === 0) {
       bankEl.textContent = '—';
       bankEl.className   = 'stat-val';
     } else {
-      const bank = closedDays.reduce((sum, d) => sum + (totals[d] - db.goal), 0);
+      const bank = legacyMs + closedDays.reduce((sum, d) => sum + (totals[d] - db.goal), 0);
       bankEl.textContent = (bank >= 0 ? '+' : '') + fmtHm(bank);
       bankEl.className   = 'stat-val ' + (bank >= 0 ? 'pos' : 'neg');
     }
@@ -1175,25 +1385,12 @@
   // Edição direta na planilha: corrige horário/tipo de uma batida, apaga uma
   // errada, ou lança uma batida esquecida com horário retroativo. Não passa
   // pelo outbox — se falhar por falta de rede, o usuário tenta de novo.
-  function toggleEditor(forceOpen) {
-    const panel   = document.getElementById('editorPanel');
-    const chevron = document.getElementById('chevronEdit');
-    const isOpen  = forceOpen ? (panel.classList.add('open'), true) : panel.classList.toggle('open');
-    chevron.classList.toggle('open', isOpen);
-    if (isOpen) {
-      const input = document.getElementById('editorDateInput');
-      if (!input.value) input.value = isoToday();
-      renderEditor();
-    }
-  }
-
   function onEditorDateChange() {
     renderEditor();
   }
 
   function renderEditor() {
-    const panel = document.getElementById('editorPanel');
-    if (!panel.classList.contains('open')) return;
+    if (!document.getElementById('viewEditor').classList.contains('active')) return;
 
     const dateStr = document.getElementById('editorDateInput').value || isoToday();
     const records = mergedRecords()
@@ -1264,12 +1461,18 @@
       action: 'punch', id: genId(), tipo,
       horario: horario.toISOString(), competencia: dateStr, origem: 'manual',
     };
+    const btn = document.getElementById('btnEditorAdd');
+    btn.disabled = true;
+    btn.textContent = 'Adicionando…';
     try {
       await postAction(payload);
       showEditorMsg('Batida adicionada ✓', 'ok');
       await refreshRecords();
     } catch (e) {
       showEditorMsg('Erro ao adicionar — tente de novo', 'err');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '+ Adicionar batida';
     }
   }
 
@@ -1282,19 +1485,9 @@
   }
 
   // ── Relatório mensal ──────────────────────────────────
-  function toggleReport(forceOpen) {
-    const panel   = document.getElementById('reportPanel');
-    const chevron = document.getElementById('chevronReport');
-    const isOpen  = forceOpen ? (panel.classList.add('open'), true) : panel.classList.toggle('open');
-    chevron.classList.toggle('open', isOpen);
-    if (isOpen) {
-      const input = document.getElementById('reportMonthInput');
-      if (!input.value) input.value = isoToday().slice(0, 7);
-      renderReportBody();
-    }
-  }
-
   function onReportMonthChange() {
+    st.reportMonth = document.getElementById('reportMonthInput').value;
+    document.getElementById('heatmapMonthInput').value = st.reportMonth;
     renderReportBody();
   }
 
@@ -1349,11 +1542,14 @@
     const lunchVals = Object.values(lunchMs);
     const avgLunchMs = lunchVals.length ? lunchVals.reduce((a, b) => a + b, 0) / lunchVals.length : null;
 
-    let bestDay = null, worstDay = null;
+    // Melhor dia = mais próximo da meta (pra cima ou pra baixo). Pior é dois
+    // extremos distintos: o dia com maior déficit e o dia com maior excesso.
+    let bestDay = null, worstUnder = null, worstOver = null;
     for (const d of workedDays) {
       const delta = totals[d] - db.goal;
-      if (!bestDay || delta > bestDay.delta) bestDay = { date: d, delta };
-      if (!worstDay || delta < worstDay.delta) worstDay = { date: d, delta };
+      if (!bestDay || Math.abs(delta) < Math.abs(bestDay.delta)) bestDay = { date: d, delta };
+      if (delta < 0 && (!worstUnder || delta < worstUnder.delta)) worstUnder = { date: d, delta };
+      if (delta > 0 && (!worstOver  || delta > worstOver.delta))  worstOver  = { date: d, delta };
     }
 
     // Descanso entre jornadas: compara saída de um dia-com-registro com a
@@ -1374,7 +1570,8 @@
 
     // Banco acumulado: todo o histórico carregado (até FETCH_DAYS dias atrás), não só o mês.
     const allTotals = dayTotals(allRecords);
-    const accumBalance = Object.values(allTotals).filter(ms => ms > 0).reduce((sum, ms) => sum + (ms - db.goal), 0);
+    const accumBalance = (db.cache.legacyBalanceMs || 0) +
+      Object.values(allTotals).filter(ms => ms > 0).reduce((sum, ms) => sum + (ms - db.goal), 0);
 
     // Saldo médio por dia da semana
     const weekdayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -1389,10 +1586,13 @@
       avg: arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null,
     }));
 
+    const dayDeltas = {};
+    for (const d of workedDays) dayDeltas[d] = totals[d] - db.goal;
+
     return {
       workedDays, totalMs, goalMetDays,
       avgEntradaMin, avgSaidaMin, avgLunchMs,
-      bestDay, worstDay, incomplete, lowRestDays, accumBalance, weekdayAvg,
+      bestDay, worstUnder, worstOver, incomplete, lowRestDays, accumBalance, weekdayAvg, dayDeltas,
     };
   }
 
@@ -1403,8 +1603,7 @@
   }
 
   function renderReportBody() {
-    const panel = document.getElementById('reportPanel');
-    if (!panel.classList.contains('open')) return;
+    if (!document.getElementById('viewReport').classList.contains('active')) return;
 
     const monthStr = document.getElementById('reportMonthInput').value || isoToday().slice(0, 7);
     const r = buildReport(monthStr, mergedRecords());
@@ -1416,30 +1615,34 @@
     }
 
     const monthBalance = r.totalMs - r.workedDays.length * db.goal;
-    const lines = [];
+    const fmtDelta = (delta) => `<span class="${delta >= 0 ? 'd-pos' : 'd-neg'}">${delta >= 0 ? '+' : ''}${fmtHm(delta)}</span>`;
 
-    lines.push(`Entrada média: <b>${fmtMinutesOfDay(r.avgEntradaMin)}</b> · Saída média: <b>${fmtMinutesOfDay(r.avgSaidaMin)}</b>`);
-    lines.push(`Almoço médio: <b>${r.avgLunchMs != null ? fmtHm(r.avgLunchMs) : '—'}</b>`);
-    if (r.bestDay && r.worstDay) {
-      const fmtDelta = (delta) => `<span class="${delta >= 0 ? 'd-pos' : 'd-neg'}">${delta >= 0 ? '+' : ''}${fmtHm(delta)}</span>`;
-      lines.push(`Melhor dia: <b>${fmtDate(r.bestDay.date)}</b> (${fmtDelta(r.bestDay.delta)}) · Pior dia: <b>${fmtDate(r.worstDay.date)}</b> (${fmtDelta(r.worstDay.delta)})`);
-    }
-    lines.push(`Banco acumulado (histórico carregado): <span class="${r.accumBalance >= 0 ? 'd-pos' : 'd-neg'}">${r.accumBalance >= 0 ? '+' : ''}${fmtHm(r.accumBalance)}</span>`);
+    const dayBadge = (lbl, day) => day ? `
+      <div class="badge">
+        <div class="badge-lbl">${lbl}</div>
+        <div class="badge-val">${fmtDate(day.date)} · ${fmtDelta(day.delta)}</div>
+      </div>` : '';
 
-    if (r.incomplete.length > 0) {
-      lines.push(`<span class="report-flag">⚠️ Dias com registro incompleto: ${r.incomplete.map(fmtDate).join(', ')}</span>`);
-    }
-    if (r.lowRestDays.length > 0) {
-      lines.push(`<span class="report-flag">⚠️ Descanso &lt;11h antes de: ${r.lowRestDays.map(fmtDate).join(', ')}</span>`);
-    }
+    const flagChip = (count, singular, plural, dates) => count > 0
+      ? `<span class="flag-chip" title="${dates.map(fmtDate).join(', ')}">⚠ ${count} ${count === 1 ? singular : plural}</span>`
+      : '';
 
-    const weekdayLines = r.weekdayAvg
-      .filter(w => w.avg != null)
-      .map(w => `${w.name}: <span class="${w.avg >= 0 ? 'd-pos' : 'd-neg'}">${w.avg >= 0 ? '+' : ''}${fmtHm(w.avg)}</span>`)
-      .join(' · ');
+    const maxAbsAvg = Math.max(1, ...r.weekdayAvg.map(w => Math.abs(w.avg ?? 0)));
+    const weekbars = r.weekdayAvg.map(w => {
+      const pct = w.avg == null ? 0 : Math.max(6, Math.abs(w.avg) / maxAbsAvg * 100);
+      const isPos = (w.avg ?? 0) >= 0;
+      return `
+        <div class="weekbar">
+          <div class="weekbar-track">
+            <div class="weekbar-top">${w.avg != null && isPos ? `<div class="weekbar-bar pos" style="height:${pct}%"></div>` : ''}</div>
+            <div class="weekbar-bottom">${w.avg != null && !isPos ? `<div class="weekbar-bar neg" style="height:${pct}%"></div>` : ''}</div>
+          </div>
+          <div class="weekbar-lbl">${w.name}</div>
+        </div>`;
+    }).join('');
 
     el.innerHTML = `
-      <div class="stats" style="margin-bottom: 10px;">
+      <div class="stats">
         <div class="stat">
           <div class="stat-lbl">Total do mês</div>
           <div class="stat-val">${fmtHm(r.totalMs)}</div>
@@ -1448,24 +1651,131 @@
         <div class="stat">
           <div class="stat-lbl">Saldo do mês</div>
           <div class="stat-val ${monthBalance >= 0 ? 'pos' : 'neg'}">${monthBalance >= 0 ? '+' : ''}${fmtHm(monthBalance)}</div>
-          <div class="stat-sub">${r.goalMetDays}/${r.workedDays.length} dias bateram a meta</div>
+          <div class="stat-sub">${r.goalMetDays}/${r.workedDays.length} dias na meta</div>
         </div>
       </div>
-      <div class="report-list">
-        ${lines.map(l => `<div>${l}</div>`).join('')}
-        ${weekdayLines ? `<div class="report-subhd">Saldo médio por dia da semana</div><div>${weekdayLines}</div>` : ''}
+      <div class="stats-sm">
+        <div class="stat stat-sm">
+          <div class="stat-lbl">Entrada média</div>
+          <div class="stat-val-sm">${fmtMinutesOfDay(r.avgEntradaMin)}</div>
+        </div>
+        <div class="stat stat-sm">
+          <div class="stat-lbl">Saída média</div>
+          <div class="stat-val-sm">${fmtMinutesOfDay(r.avgSaidaMin)}</div>
+        </div>
+        <div class="stat stat-sm">
+          <div class="stat-lbl">Almoço médio</div>
+          <div class="stat-val-sm">${r.avgLunchMs != null ? fmtHm(r.avgLunchMs) : '—'}</div>
+        </div>
+        <div class="stat stat-sm">
+          <div class="stat-lbl">Banco acumulado</div>
+          <div class="stat-val-sm ${r.accumBalance >= 0 ? 'pos' : 'neg'}">${r.accumBalance >= 0 ? '+' : ''}${fmtHm(r.accumBalance)}</div>
+        </div>
+      </div>
+      <div class="badges">
+        ${dayBadge('🏆 Melhor dia', r.bestDay)}
+        ${dayBadge('📉 Pior (menos)', r.worstUnder)}
+        ${dayBadge('📈 Pior (mais)', r.worstOver)}
+      </div>
+      ${r.incomplete.length || r.lowRestDays.length ? `
+      <div class="flags">
+        ${flagChip(r.incomplete.length, 'dia incompleto', 'dias incompletos', r.incomplete)}
+        ${flagChip(r.lowRestDays.length, 'descanso curto', 'descansos curtos', r.lowRestDays)}
+      </div>` : ''}
+      <div class="report-subhd">Saldo médio por dia da semana</div>
+      <div class="weekbars">${weekbars}</div>
+    `;
+  }
+
+  // ── Calendário (heatmap) ────────────────────────────────
+  function onHeatmapMonthChange() {
+    st.reportMonth = document.getElementById('heatmapMonthInput').value;
+    document.getElementById('reportMonthInput').value = st.reportMonth;
+    renderHeatmap();
+  }
+
+  function renderHeatmap() {
+    if (!document.getElementById('viewHeatmap').classList.contains('active')) return;
+
+    const monthStr = document.getElementById('heatmapMonthInput').value || isoToday().slice(0, 7);
+    const r = buildReport(monthStr, mergedRecords());
+    const el = document.getElementById('heatmapBody');
+
+    if (r.workedDays.length === 0) {
+      el.innerHTML = '<div class="hist-empty">Nenhum registro neste mês</div>';
+      return;
+    }
+
+    const dates = monthDates(monthStr);
+    const [y, m] = monthStr.split('-').map(Number);
+    const firstDow = new Date(y, m - 1, 1).getDay();
+    const incompleteSet = new Set(r.incomplete);
+
+    const cells = [];
+    for (let i = 0; i < firstDow; i++) cells.push('<div class="hm-cell hm-empty"></div>');
+    for (const d of dates) {
+      const delta = r.dayDeltas[d];
+      const dayNum = Number(d.slice(-2));
+      let cls = 'hm-cell', style = '', title = fmtDate(d);
+      if (delta == null) {
+        cls += ' hm-empty';
+      } else {
+        const alpha = Math.min(0.85, 0.18 + Math.abs(delta) / (2 * 3600000) * 0.6);
+        const rgb = delta >= 0 ? '5,150,105' : '220,38,38';
+        style = ` style="background: rgba(${rgb}, ${alpha});"`;
+        if (alpha > 0.5) cls += ' hm-light';
+        title += ` · ${delta >= 0 ? '+' : ''}${fmtHm(delta)}`;
+      }
+      if (incompleteSet.has(d)) { cls += ' hm-incomplete'; title += ' · incompleto'; }
+      cells.push(`<div class="${cls}"${style} title="${title}">${dayNum}</div>`);
+    }
+
+    const weekdayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const monthBalance = r.totalMs - r.workedDays.length * db.goal;
+
+    el.innerHTML = `
+      <div class="hm-summary">
+        <div>Saldo do mês: <b class="${monthBalance >= 0 ? 'd-pos' : 'd-neg'}">${monthBalance >= 0 ? '+' : ''}${fmtHm(monthBalance)}</b></div>
+        <div><b>${r.goalMetDays}/${r.workedDays.length}</b> dias na meta</div>
+      </div>
+      <div class="hm-dow">${weekdayNames.map(n => `<span>${n}</span>`).join('')}</div>
+      <div class="hm-grid">${cells.join('')}</div>
+      <div class="hm-legend">
+        <span><i class="hm-swatch" style="background:rgba(5,150,105,0.6)"></i>Acima da meta</span>
+        <span><i class="hm-swatch" style="background:rgba(220,38,38,0.6)"></i>Abaixo da meta</span>
+        <span><i class="hm-swatch" style="background:var(--surf2); border:1px solid var(--border);"></i>Sem registro</span>
+        <span><i class="hm-swatch" style="background:var(--surf2); border:2px solid var(--warn);"></i>Incompleto</span>
       </div>
     `;
   }
 
-  // ── Settings ──────────────────────────────────────────
-  function toggleSettings(forceOpen) {
-    const panel   = document.getElementById('settingsPanel');
-    const chevron = document.getElementById('chevron');
-    const isOpen  = forceOpen ? (panel.classList.add('open'), true) : panel.classList.toggle('open');
-    chevron.classList.toggle('open', isOpen);
+  // ── Navegação (abas) ────────────────────────────────────
+  const VIEW_IDS = { home: 'viewHome', report: 'viewReport', heatmap: 'viewHeatmap', editor: 'viewEditor', settings: 'viewSettings' };
+
+  function switchView(name) {
+    for (const key in VIEW_IDS) {
+      document.getElementById(VIEW_IDS[key]).classList.toggle('active', key === name);
+    }
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === name));
+
+    if (name === 'report') {
+      const input = document.getElementById('reportMonthInput');
+      if (!input.value) input.value = st.reportMonth || isoToday().slice(0, 7);
+      st.reportMonth = input.value;
+      renderReportBody();
+    } else if (name === 'heatmap') {
+      const input = document.getElementById('heatmapMonthInput');
+      if (!input.value) input.value = st.reportMonth || isoToday().slice(0, 7);
+      st.reportMonth = input.value;
+      renderHeatmap();
+    } else if (name === 'editor') {
+      const input = document.getElementById('editorDateInput');
+      if (!input.value) input.value = isoToday();
+      renderEditor();
+    }
   }
 
+  // ── Settings ──────────────────────────────────────────
   function onGoalChange() {
     const v = parseFloat(document.getElementById('goalInput').value);
     if (v > 0 && v <= 24) {
@@ -1473,6 +1783,28 @@
       save();
       render();
       syncPushSettings();
+    }
+  }
+
+  async function onLegacySave() {
+    const statusEl = document.getElementById('legacyStatus');
+    if (!db.url) { statusEl.textContent = 'Configure a URL primeiro'; statusEl.className = 'sync-status err'; return; }
+    const v = parseFloat(document.getElementById('legacyInput').value);
+    if (isNaN(v)) return;
+
+    statusEl.textContent = 'Salvando…';
+    statusEl.className = 'sync-status';
+    try {
+      await postAction({ action: 'setLegacy', horas: v });
+      db.cache.legacyBalanceMs = v * 3600000;
+      save();
+      updateStats();
+      renderReportBody();
+      statusEl.textContent = 'Saldo legado salvo';
+      statusEl.className = 'sync-status ok';
+    } catch (e) {
+      statusEl.textContent = 'Erro ao salvar (offline?)';
+      statusEl.className = 'sync-status err';
     }
   }
 

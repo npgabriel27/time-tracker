@@ -9,6 +9,7 @@
 
 const CONFIG = {
   SHEET_NAME: 'Registros',        // Nome da aba na planilha
+  LEGACY_SHEET_NAME: 'Config',    // Aba com o saldo de banco de horas de antes do app
   TIMEZONE:   'America/Sao_Paulo', // Fuso horário de exibição (GMT-3)
   DEFAULT_DAYS: 400,              // Janela padrão (em dias) retornada pelo GET — cobre relatórios de meses passados
 };
@@ -42,27 +43,30 @@ function doGet(e) {
       });
     }
 
-    return jsonResponse({ ok: true, records: rows });
+    return jsonResponse({ ok: true, records: rows, legacyBalanceMs: getLegacyBalanceHours() * 3600000 });
   } catch (err) {
     return jsonResponse({ ok: false, error: err.message });
   }
 }
 
 // ── POST: registra, edita ou apaga uma batida ────────────────────
-// body.action: 'punch' (padrão) | 'update' | 'delete'
+// body.action: 'punch' (padrão) | 'update' | 'delete' | 'setLegacy'
 //  - 'punch'  → { id, tipo, horario, competencia, origem? } cria uma linha nova
 //               (idempotente por 'id' — reenviar não duplica; usado tanto pelo
 //               fluxo normal de Registrar Ponto quanto para lançar uma batida
 //               manual/esquecida com horário retroativo)
 //  - 'update' → { id, tipo, horario, competencia } corrige uma linha existente
 //  - 'delete' → { id } remove a linha
+//  - 'setLegacy' → { horas } define o saldo de banco de horas de antes do app
+//                   (positivo = crédito, negativo = débito)
 function doPost(e) {
   try {
     const body   = JSON.parse(e.postData.contents);
     const action = body.action || 'punch';
 
-    if (action === 'update') return handleUpdate(body);
-    if (action === 'delete') return handleDelete(body);
+    if (action === 'update')    return handleUpdate(body);
+    if (action === 'delete')    return handleDelete(body);
+    if (action === 'setLegacy') return handleSetLegacy(body);
     return handlePunch(body);
   } catch (err) {
     return jsonResponse({ ok: false, error: err.message });
@@ -144,7 +148,42 @@ function handleDelete(body) {
   return jsonResponse({ ok: true, id: id });
 }
 
+function handleSetLegacy(body) {
+  const horas = Number(body.horas);
+  if (isNaN(horas)) {
+    return jsonResponse({ ok: false, error: 'Campo obrigatório: horas (número)' });
+  }
+  setLegacyBalanceHours(horas);
+  return jsonResponse({ ok: true, legacyBalanceMs: horas * 3600000 });
+}
+
 // ── Helpers ───────────────────────────────────────────────────
+// Aba "Config": guarda o saldo de banco de horas de uma época anterior ao
+// app (ex.: controlado antes numa planilha manual). Fica fora da aba
+// "Registros" pois não é uma batida — é um único valor somado direto ao
+// banco de horas calculado. Editável tanto pela aba quanto pelo app.
+function getLegacySheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(CONFIG.LEGACY_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.LEGACY_SHEET_NAME);
+    sheet.getRange('A1').setValue('Saldo legado (horas)').setFontWeight('bold');
+    sheet.getRange('B1').setValue(0);
+    sheet.setColumnWidth(1, 220);
+  }
+  return sheet;
+}
+
+function getLegacyBalanceHours() {
+  const v = getLegacySheet().getRange('B1').getValue();
+  const n = typeof v === 'number' ? v : parseFloat(v);
+  return isNaN(n) ? 0 : n;
+}
+
+function setLegacyBalanceHours(horas) {
+  getLegacySheet().getRange('B1').setValue(horas);
+}
+
 function getSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
