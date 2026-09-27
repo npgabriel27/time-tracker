@@ -208,6 +208,7 @@
     align-items: center;
   }
   .link-btn:hover { color: var(--text1); border-color: var(--accent); }
+  .link-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
   .refresh-info {
     font-size: 0.66rem;
@@ -1021,6 +1022,22 @@
     return { records: json.records, legacyBalanceMs: json.legacyBalanceMs || 0 };
   }
 
+  // Leitura rápida (últimas ~20 batidas, custo fixo no Apps Script) — usada
+  // antes de bater o ponto, só pra saber a última batida e o que já foi
+  // feito hoje. Não substitui o cache inteiro, só funde por cima dele.
+  async function fetchRecentRecords() {
+    const res = await fetch(`${db.url}?mode=recent`);
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || 'erro desconhecido');
+    return json.records;
+  }
+
+  function mergeRecentIntoCache(records) {
+    const byId = new Map(db.cache.records.map(r => [r.id, r]));
+    for (const r of records) byId.set(r.id, r);
+    db.cache = { ...db.cache, records: [...byId.values()] };
+  }
+
   // payload sempre leva um 'action' ('punch' | 'update' | 'delete') — ver apps-script.gs
   async function postAction(payload) {
     const res = await fetch(db.url, {
@@ -1077,12 +1094,22 @@
 
     st.phase = 'loading';
     render();
-    await refreshRecords();
+
+    try {
+      const recent = await fetchRecentRecords();
+      mergeRecentIntoCache(recent);
+      save();
+    } catch (e) {
+      // Sem rede: segue com o que já está em cache — o pior caso é sugerir
+      // o tipo errado, e os botões de rádio deixam corrigir na hora.
+    }
 
     st.status = computeStatus(mergedRecords());
     st.selectedTipo = st.status.defaultTipo;
     st.phase = 'confirm';
     render();
+
+    refreshRecords(); // sincronização completa em segundo plano (não bloqueia a UI)
   }
 
   function onCancelClick() {
@@ -1143,8 +1170,16 @@
   }
 
   async function onRefreshClick() {
-    await refreshRecords();
-    await flushOutbox();
+    const btn = document.getElementById('btnRefresh');
+    btn.disabled = true;
+    btn.textContent = '↻ Atualizando…';
+    try {
+      await refreshRecords();
+      await flushOutbox();
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '↻ Atualizar';
+    }
   }
 
   async function onManualSync() {

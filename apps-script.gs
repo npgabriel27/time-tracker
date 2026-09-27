@@ -12,41 +12,67 @@ const CONFIG = {
   LEGACY_SHEET_NAME: 'Config',    // Aba com o saldo de banco de horas de antes do app
   TIMEZONE:   'America/Sao_Paulo', // Fuso horário de exibição (GMT-3)
   DEFAULT_DAYS: 400,              // Janela padrão (em dias) retornada pelo GET — cobre relatórios de meses passados
+  RECENT_ROWS: 20,                // Linhas lidas no modo rápido (?mode=recent) — cobre alguns dias de batidas
 };
 
 const HEADER = ['Timestamp', 'Data', 'Tipo', 'Horário', 'ID', 'Origem'];
 const TS_COL = 1, DATA_COL = 2, TIPO_COL = 3, HORARIO_COL = 4, ID_COL = 5, ORIGEM_COL = 6;
 
-// ── GET: retorna o histórico recente como JSON ─────────────────
-// ?days=45  → limita aos últimos N dias (padrão 45)
+// ── GET: retorna o histórico como JSON ──────────────────────────
+// ?mode=recent → só as últimas CONFIG.RECENT_ROWS linhas, lidas com getRange
+//                (não getDataRange): custo fixo, não escala com o tamanho da
+//                planilha. Usado antes de bater o ponto, quando só interessa
+//                saber a última batida e o que já foi feito hoje.
+// ?days=45     → (padrão) histórico completo, limitado aos últimos N dias
+//                (padrão CONFIG.DEFAULT_DAYS) — usado pelas telas de
+//                relatório/calendário/banco de horas, que precisam do
+//                histórico inteiro carregado.
 function doGet(e) {
   try {
     const sheet = getSheet();
-    const data  = sheet.getDataRange().getValues();
-    const days  = parseInt((e && e.parameter && e.parameter.days) || CONFIG.DEFAULT_DAYS, 10);
-    const cutoff = isoDate(new Date(Date.now() - days * 86400000));
-
-    const rows = [];
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      const id  = row[ID_COL - 1];
-      if (!id) continue; // linha vazia
-      const competencia = formatDate(row[DATA_COL - 1]);
-      if (competencia < cutoff) continue;
-      rows.push({
-        timestamp:   row[TS_COL - 1],
-        competencia: competencia,
-        tipo:        String(row[TIPO_COL - 1] || '').toLowerCase(),
-        horario:     toIso(row[HORARIO_COL - 1]),
-        id:          String(id),
-        origem:      String(row[ORIGEM_COL - 1] || 'ponto'),
-      });
-    }
+    const mode  = (e && e.parameter && e.parameter.mode) || 'full';
+    const rows  = mode === 'recent' ? readRecentRows(sheet) : readAllRows(sheet, e);
 
     return jsonResponse({ ok: true, records: rows, legacyBalanceMs: getLegacyBalanceHours() * 3600000 });
   } catch (err) {
     return jsonResponse({ ok: false, error: err.message });
   }
+}
+
+function readRecentRows(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  const startRow = Math.max(2, lastRow - CONFIG.RECENT_ROWS + 1);
+  const data = sheet.getRange(startRow, 1, lastRow - startRow + 1, HEADER.length).getValues();
+  return data.map(rowToRecord).filter(Boolean);
+}
+
+function readAllRows(sheet, e) {
+  const data   = sheet.getDataRange().getValues();
+  const days   = parseInt((e && e.parameter && e.parameter.days) || CONFIG.DEFAULT_DAYS, 10);
+  const cutoff = isoDate(new Date(Date.now() - days * 86400000));
+
+  const rows = [];
+  for (let i = 1; i < data.length; i++) {
+    const record = rowToRecord(data[i]);
+    if (!record) continue;
+    if (record.competencia < cutoff) continue;
+    rows.push(record);
+  }
+  return rows;
+}
+
+function rowToRecord(row) {
+  const id = row[ID_COL - 1];
+  if (!id) return null; // linha vazia
+  return {
+    timestamp:   row[TS_COL - 1],
+    competencia: formatDate(row[DATA_COL - 1]),
+    tipo:        String(row[TIPO_COL - 1] || '').toLowerCase(),
+    horario:     toIso(row[HORARIO_COL - 1]),
+    id:          String(id),
+    origem:      String(row[ORIGEM_COL - 1] || 'ponto'),
+  };
 }
 
 // ── POST: registra, edita ou apaga uma batida ────────────────────
