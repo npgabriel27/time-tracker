@@ -1838,7 +1838,7 @@
       statusEl.textContent = 'Saldo legado salvo';
       statusEl.className = 'sync-status ok';
     } catch (e) {
-      statusEl.textContent = 'Erro ao salvar (offline?)';
+      statusEl.textContent = `Erro ao salvar: ${e.message || 'offline?'}`;
       statusEl.className = 'sync-status err';
     }
   }

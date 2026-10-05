@@ -192,10 +192,21 @@ function getLegacySheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(CONFIG.LEGACY_SHEET_NAME);
   if (!sheet) {
-    sheet = ss.insertSheet(CONFIG.LEGACY_SHEET_NAME);
-    sheet.getRange('A1').setValue('Saldo legado (horas)').setFontWeight('bold');
-    sheet.getRange('B1').setValue(0);
-    sheet.setColumnWidth(1, 220);
+    // Lock: o GET e o POST podem chegar juntos e os dois tentarem criar a aba
+    // ("Já existe uma página com esse nome").
+    const lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+    try {
+      sheet = ss.getSheetByName(CONFIG.LEGACY_SHEET_NAME);
+      if (!sheet) {
+        sheet = ss.insertSheet(CONFIG.LEGACY_SHEET_NAME);
+        sheet.getRange('A1').setValue('Saldo legado (horas)').setFontWeight('bold');
+        sheet.getRange('B1').setValue(0);
+        sheet.setColumnWidth(1, 220);
+      }
+    } finally {
+      lock.releaseLock();
+    }
   }
   return sheet;
 }
